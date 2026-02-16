@@ -1,0 +1,29 @@
+services:
+  db:
+    image: pgautoupgrade/pgautoupgrade:18-alpine
+    restart: no
+    environment:
+      - POSTGRES_USER=odoo
+      - "POSTGRES_PASSWORD=password"
+      - POSTGRES_DB=postgres
+    volumes:
+      - ./docker/data/postgresql:/var/lib/postgresql/data
+
+  odoo:
+    image: odoo:18
+    depends_on:
+      - db
+    restart: no
+    environment:
+      - HOST=db
+      - "PASSWORD=password"
+    command:
+      - --dev=all
+    volumes:
+      - ./docker/data/odoo:/var/lib/odoo
+      - .:/mnt/extra-addons
+      - ./docker/conf:/etc/odoo
+      - /var/lib/GeoIP:/usr/share/GeoIP:ro
+    ports:
+      - 127.0.0.1:8069:8069
+      - 127.0.0.1:8072:8072
