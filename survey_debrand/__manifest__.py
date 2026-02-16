@@ -8,6 +8,7 @@
     "depends": ["survey"],
     "data": ["views/survey_templates.xml"],
     "author": "Daniel Lo Nigro",
+    "maintainers": ["Daniel15"],
     "website": "https://d.sb/odoo-modules",
     "license": "AGPL-3",
     "installable": True,

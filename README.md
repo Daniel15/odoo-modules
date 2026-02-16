@@ -19,7 +19,7 @@ Available addons
 ----------------
 addon | version | maintainers | summary
 --- | --- | --- | ---
-[survey_debrand](survey_debrand/) | 18.0.1.0.0 |  | Remove Odoo branding from survey pages
+[survey_debrand](survey_debrand/) | 18.0.1.0.0 | <a href='https://github.com/Daniel15'><img src='https://github.com/Daniel15.png' width='32' height='32' style='border-radius:50%;' alt='Daniel15'/></a> | Remove Odoo branding from survey pages
 
 [//]: # (end addons)
 
