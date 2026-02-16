@@ -15,7 +15,11 @@ My addons for Odoo.
 
 [//]: # (addons)
 
-This part will be replaced when running the oca-gen-addons-table script from OCA/maintainer-tools.
+Available addons
+----------------
+addon | version | maintainers | summary
+--- | --- | --- | ---
+[survey_debrand](survey_debrand/) | 18.0.1.0.0 |  | Remove Odoo branding from survey pages
 
 [//]: # (end addons)
 
