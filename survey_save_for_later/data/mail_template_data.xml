@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+    <!-- Email template for save for later functionality -->
+    <record id="mail_template_save_for_later" model="mail.template">
+        <field name="name">Survey: Save for Later Email</field>
+        <field name="model_id" ref="survey.model_survey_user_input" />
+        <field name="subject">Resume your survey: ${object.survey_id.title}</field>
+        <field
+            name="email_from"
+        >${(object.survey_id.user_id.email_formatted if object.survey_id.user_id else object.env.company.email_formatted) | safe}</field>
+        <field
+            name="email_to"
+        >${object._get_save_for_later_email() or user.email}</field>
+        <field name="lang">${object.partner_id.lang or user.lang}</field>
+        <field name="auto_delete" eval="True" />
+        <field name="body_html" type="html">
+            <div style="margin: 0px; padding: 0px;">
+                <p>Hello,</p>
+                <p>You have saved your progress for the survey <strong
+                >${object.survey_id.title}</strong>.</p>
+                <p>You can resume the survey at any time by clicking the link below:</p>
+                <p style="margin: 16px 0;">
+                    <a
+                        href="${object.get_start_url()}"
+                        style="background-color: #009efb; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;"
+                    >
+            Resume Survey
+        </a>
+                </p>
+                <p style="font-size: 12px; color: #888;">
+        Alternatively, copy and paste this URL into your browser:<br />
+        ${object.get_start_url()}
+    </p>
+                <t t-if="object.survey_id.deadline">
+                    <p style="color: #dc3545;">
+            Please note that this survey must be completed by: <strong
+                    >${format_datetime(object.survey_id.deadline)}</strong>
+        </p>
+                </t>
+                <p>Thank you!</p>
+            </div>
+        </field>
+    </record>
+</odoo>
