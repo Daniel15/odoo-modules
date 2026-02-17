@@ -54,7 +54,7 @@ repos:
           - --addons-dir=.
           - --branch=18.0
           - --org-name=Daniel15
-          - --repo-name=odoo-addons
+          - --repo-name=odoo-modules
           - --if-source-changed
           - --keep-source-digest
           - --convert-fragments-to-markdown
