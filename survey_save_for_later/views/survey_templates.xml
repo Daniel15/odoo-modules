@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Add Save for Later button to survey form -->
+    <template
+        id="survey_fill_form_save_button"
+        inherit_id="survey.survey_fill_form_in_progress"
+        priority="20"
+        name="Add Save for Later Button"
+    >
+        <!-- Target submit buttons that have a <t> child element -->
+        <!-- This selects page_per_section and page_per_question layouts -->
+        <xpath expr="//button[@type='submit']/t/.." position="before">
+            <t
+                t-if="survey.allow_save_for_later and submit_value and submit_value != 'finish'"
+            >
+                <button
+                    type="button"
+                    class="btn btn-secondary me-2 o_survey_save_for_later_btn"
+                    title="Save your progress and resume later"
+                >Save for Later</button>
+            </t>
+        </xpath>
+        <!-- one_page layout: add before the next_page button -->
+        <xpath expr="//button[@id='next_page']" position="before">
+            <t t-if="survey.allow_save_for_later">
+                <button
+                    type="button"
+                    class="btn btn-secondary me-2 o_survey_save_for_later_btn"
+                    title="Save your progress and resume later"
+                >Save for Later</button>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- Add Save for Later modal to the survey page (after existing modal) -->
+    <template
+        id="survey_fill_form_modal"
+        inherit_id="survey.survey_fill_form"
+        priority="20"
+        name="Add Save for Later Modal"
+    >
+        <xpath expr="//div[@id='MasterTabErrorModal']" position="after">
+            <div
+                t-if="survey and survey.allow_save_for_later"
+                class="modal fade"
+                id="SaveForLaterModal"
+                tabindex="-1"
+                aria-labelledby="SaveForLaterModalLabel"
+                aria-hidden="true"
+            >
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5
+                                class="modal-title"
+                                id="SaveForLaterModalLabel"
+                            >Survey Saved</h5>
+                            <button
+                                type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal"
+                                aria-label="Close"
+                            />
+                        </div>
+                        <div class="modal-body">
+                            <p>Your survey progress has been saved.</p>
+                            <p>You can resume later using the link below:</p>
+                            <div class="input-group mb-3">
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    id="o_save_for_later_resume_url"
+                                    readonly="readonly"
+                                />
+                                <button
+                                    class="btn btn-outline-secondary"
+                                    type="button"
+                                    id="o_copy_resume_url"
+                                >Copy</button>
+                            </div>
+                            <div
+                                class="alert alert-info d-none"
+                                id="o_email_sent_alert"
+                                role="alert"
+                            >
+                                A resume link has also been sent to your email.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button
+                                type="button"
+                                class="btn btn-primary"
+                                data-bs-dismiss="modal"
+                            >Continue Survey</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </template>
+</odoo>
