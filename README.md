@@ -21,6 +21,7 @@ addon | version | maintainers | summary
 --- | --- | --- | ---
 [survey_debrand](survey_debrand/) | 18.0.1.0.0 | <a href='https://github.com/Daniel15'><img src='https://github.com/Daniel15.png' width='32' height='32' style='border-radius:50%;' alt='Daniel15'/></a> | Remove Odoo branding from survey pages
 [survey_question_list_all](survey_question_list_all/) | 18.0.1.0.0 | <a href='https://github.com/Daniel15'><img src='https://github.com/Daniel15.png' width='32' height='32' style='border-radius:50%;' alt='Daniel15'/></a> | List all questions in the survey form instead of only 40 per page
+[survey_question_text_content](survey_question_text_content/) | 18.0.1.0.0 | <a href='https://github.com/Daniel15'><img src='https://github.com/Daniel15.png' width='32' height='32' style='border-radius:50%;' alt='Daniel15'/></a> | Add arbitrary rich text content to surveys
 
 [//]: # (end addons)
 
