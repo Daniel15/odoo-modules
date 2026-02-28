@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2026 Daniel Lo Nigro
+     License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html). -->
+<odoo>
+    <!-- Render text_content questions as plain HTML without the question wrapper -->
+    <template id="question_container" inherit_id="survey.question_container">
+        <!-- Hide the standard question wrapper for text_content questions -->
+        <xpath expr="//div[@t-att-id='question.id']" position="attributes">
+            <attribute name="t-if">question.question_type != 'text_content'</attribute>
+        </xpath>
+
+        <!-- Add text_content rendering after the (now hidden) question wrapper div -->
+        <xpath expr="//div[@t-att-id='question.id']" position="after">
+            <div
+                t-if="question.question_type == 'text_content'"
+                t-attf-class="o_survey_text_content pb-4 #{'d-none' if not display_question else ''}"
+                t-out="question.content_html"
+            />
+        </xpath>
+    </template>
+</odoo>
