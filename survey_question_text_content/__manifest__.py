@@ -10,6 +10,12 @@
         "views/survey_question_views.xml",
         "views/survey_templates.xml",
     ],
+    "images": [
+        "static/description/icon.png",
+        "static/description/banner.png",
+        "static/description/add_question.png",
+        "static/description/survey.png",
+    ],
     "author": "Daniel Lo Nigro",
     "maintainers": ["Daniel15"],
     "website": "https://d.sb/odoo-modules",
