@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!-- Copyright 2026 Daniel Lo Nigro
      License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html). -->
 <odoo>
@@ -36,11 +36,31 @@
                 />
             </xpath>
 
-            <!-- Hide the Options tab for text_content -->
-            <xpath expr="//page[@name='options']" position="attributes">
+            <!-- Hide the Description tab for text_content -->
+            <xpath expr="//page[@name='survey_description']" position="attributes">
+                <attribute name="invisible">question_type == 'text_content'</attribute>
+            </xpath>
+
+            <!-- Hide non-relevant option groups for text_content -->
+            <xpath
+                expr="//page[@name='options']//group[field[@name='validation_required']]"
+                position="attributes"
+            >
                 <attribute
                     name="invisible"
-                >is_page or question_type == 'text_content'</attribute>
+                >question_type in ['scale', 'text_content']</attribute>
+            </xpath>
+            <xpath
+                expr="//page[@name='options']//group[field[@name='constr_mandatory']]"
+                position="attributes"
+            >
+                <attribute name="invisible">question_type == 'text_content'</attribute>
+            </xpath>
+            <xpath
+                expr="//page[@name='options']//group[field[@name='session_available']]"
+                position="attributes"
+            >
+                <attribute name="invisible">question_type == 'text_content'</attribute>
             </xpath>
         </field>
     </record>

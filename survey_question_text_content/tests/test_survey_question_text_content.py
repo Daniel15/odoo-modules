@@ -1,6 +1,8 @@
 # Copyright 2026 Daniel Lo Nigro
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 
+from lxml import etree
+
 from odoo.tests.common import users
 
 from odoo.addons.survey.tests.common import TestSurveyCommon
@@ -66,6 +68,45 @@ class TestSurveyQuestionTextContent(TestSurveyCommon):
     def test_is_not_page(self):
         """A text_content question is not treated as a page/section."""
         self.assertFalse(self.question_text_content.is_page)
+
+    @users("survey_manager")
+    def test_form_view_hides_irrelevant_tabs_and_groups(self):
+        """The form view hides Description tab and non-relevant Options groups
+        for text_content questions, leaving only Conditional display visible."""
+        arch = self.env["survey.question"].get_view(view_type="form")["arch"]
+        tree = etree.fromstring(arch)
+
+        # Description tab should be hidden for text_content
+        description_page = tree.xpath("//page[@name='survey_description']")[0]
+        self.assertIn("text_content", description_page.get("invisible", ""))
+
+        # Options tab should still be visible (no text_content in invisible)
+        options_page = tree.xpath("//page[@name='options']")[0]
+        self.assertNotIn("text_content", options_page.get("invisible", ""))
+
+        # Within Options, these groups should be hidden for text_content
+        # Use field (direct child) not .//field (descendant) to avoid
+        # matching the outer wrapper <group> which contains all inner groups.
+        answers_group = tree.xpath(
+            "//page[@name='options']//group[field[@name='validation_required']]"
+        )[0]
+        self.assertIn("text_content", answers_group.get("invisible", ""))
+
+        constraints_group = tree.xpath(
+            "//page[@name='options']//group[field[@name='constr_mandatory']]"
+        )[0]
+        self.assertIn("text_content", constraints_group.get("invisible", ""))
+
+        live_sessions_group = tree.xpath(
+            "//page[@name='options']//group[field[@name='session_available']]"
+        )[0]
+        self.assertIn("text_content", live_sessions_group.get("invisible", ""))
+
+        # Conditional display group should NOT be hidden for text_content
+        conditional_group = tree.xpath(
+            "//page[@name='options']//group[field[@name='triggering_answer_ids']]"
+        )[0]
+        self.assertNotIn("text_content", conditional_group.get("invisible", ""))
 
     @users("survey_manager")
     def test_included_in_predefined_questions(self):
