@@ -7,6 +7,9 @@
     "category": "Survey",
     "depends": ["survey"],
     "data": ["views/survey_survey_views.xml"],
+    "images": [
+        "static/description/banner.png",
+    ],
     "author": "Daniel Lo Nigro",
     "maintainers": ["Daniel15"],
     "website": "https://d.sb/odoo-modules",
