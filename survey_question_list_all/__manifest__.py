@@ -4,7 +4,7 @@
     "name": "List All Survey Questions",
     "summary": "List all questions in the survey form instead of only 40 per page",
     "version": "18.0.1.0.0",
-    "category": "Marketing",
+    "category": "Survey",
     "depends": ["survey"],
     "data": ["views/survey_survey_views.xml"],
     "author": "Daniel Lo Nigro",

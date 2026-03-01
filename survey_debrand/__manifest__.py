@@ -4,7 +4,7 @@
     "name": "Survey Debrand",
     "summary": "Remove Odoo branding from survey pages",
     "version": "18.0.1.0.0",
-    "category": "Marketing",
+    "category": "Survey",
     "depends": ["survey"],
     "data": ["views/survey_templates.xml"],
     "author": "Daniel Lo Nigro",

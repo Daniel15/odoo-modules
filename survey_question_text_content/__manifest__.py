@@ -4,7 +4,7 @@
     "name": "Survey Question Text Content",
     "summary": "Add arbitrary rich text content to surveys",
     "version": "18.0.1.0.0",
-    "category": "Marketing",
+    "category": "Survey",
     "depends": ["survey"],
     "data": [
         "views/survey_question_views.xml",
