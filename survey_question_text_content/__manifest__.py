@@ -11,7 +11,6 @@
         "views/survey_templates.xml",
     ],
     "images": [
-        "static/description/icon.png",
         "static/description/banner.png",
         "static/description/add_question.png",
         "static/description/survey.png",
