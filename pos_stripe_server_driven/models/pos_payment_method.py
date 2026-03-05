@@ -98,7 +98,7 @@ class PosPaymentMethod(models.Model):
 
     def _stripe_calculate_amount(self, amount):
         currency = self.journal_id.currency_id or self.company_id.currency_id
-        return round(amount / currency.rounding)
+        return int(round(amount / currency.rounding))
 
     def action_stripe_sd_create_webhook(self):
         """Create a Stripe webhook for terminal events.
@@ -141,9 +141,22 @@ class PosPaymentMethod(models.Model):
                         "api_version": stripe_const.API_VERSION,
                     },
                 )
-                self.stripe_terminal_webhook_secret = webhook.get("secret")
-                message = _("Your Stripe Webhook was successfully set up!")
-                notification_type = "info"
+                error = webhook.get("error")
+                secret = webhook.get("secret")
+                if error or not secret:
+                    _logger.error(
+                        "Error creating Stripe webhook endpoint: %s",
+                        error or webhook,
+                    )
+                    message = _(
+                        "Stripe returned an error while creating the webhook."
+                        " Please check your Stripe configuration and logs."
+                    )
+                    notification_type = "danger"
+                else:
+                    self.stripe_terminal_webhook_secret = secret
+                    message = _("Your Stripe Webhook was successfully set up!")
+                    notification_type = "info"
 
         return {
             "type": "ir.actions.client",
@@ -177,7 +190,7 @@ class PosPaymentMethod(models.Model):
 
         # Create PaymentIntent
         params = [
-            ("currency", currency.name),
+            ("currency", currency.name.lower()),
             ("amount", self._stripe_calculate_amount(amount)),
             ("payment_method_types[]", "card_present"),
             ("capture_method", "manual"),
@@ -204,6 +217,13 @@ class PosPaymentMethod(models.Model):
         payment_intent_id = intent_result["id"]
 
         # Hand off to reader
+        if not self.stripe_reader_id:
+            raise UserError(
+                _(
+                    "No Stripe reader is configured for this payment method. "
+                    "Please select a reader before processing payments."
+                )
+            )
         quoted_reader = werkzeug.urls.url_quote(self.stripe_reader_id)
         reader_endpoint = f"terminal/readers/{quoted_reader}/process_payment_intent"
         process_result = provider._stripe_make_request(
@@ -334,6 +354,10 @@ class PosPaymentMethod(models.Model):
         provider = self.sudo()._get_stripe_payment_provider()
 
         # Cancel the action on the reader
+        if not self.stripe_reader_id:
+            raise UserError(
+                _("Stripe reader is not configured for this payment method.")
+            )
         quoted_reader = werkzeug.urls.url_quote(self.stripe_reader_id)
         reader_endpoint = f"terminal/readers/{quoted_reader}/cancel_action"
         try:

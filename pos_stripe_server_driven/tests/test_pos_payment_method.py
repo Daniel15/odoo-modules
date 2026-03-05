@@ -175,6 +175,32 @@ class TestPosPaymentMethodCreateWebhook(TransactionCase):
             self.payment_method.stripe_terminal_webhook_secret, "whsec_existing"
         )
 
+    def test_create_webhook_stripe_error(self):
+        """Returns error when Stripe returns an error creating the webhook."""
+        self._skip_if_no_provider()
+        self.payment_method.stripe_terminal_webhook_secret = False
+        mock_response = {"error": {"message": "Invalid API key"}}
+        with (
+            self._mock_stripe_request(return_value=mock_response),
+            patch.object(type(self.provider), "stripe_secret_key", new="sk_test_fake"),
+        ):
+            result = self.payment_method.action_stripe_sd_create_webhook()
+        self.assertEqual(result["params"]["type"], "danger")
+        self.assertFalse(self.payment_method.stripe_terminal_webhook_secret)
+
+    def test_create_webhook_missing_secret_in_response(self):
+        """Returns error when Stripe response has no secret."""
+        self._skip_if_no_provider()
+        self.payment_method.stripe_terminal_webhook_secret = False
+        mock_response = {"id": "we_123"}  # No "secret" key
+        with (
+            self._mock_stripe_request(return_value=mock_response),
+            patch.object(type(self.provider), "stripe_secret_key", new="sk_test_fake"),
+        ):
+            result = self.payment_method.action_stripe_sd_create_webhook()
+        self.assertEqual(result["params"]["type"], "danger")
+        self.assertFalse(self.payment_method.stripe_terminal_webhook_secret)
+
     def test_create_webhook_no_secret_key(self):
         """Returns error when Stripe secret key is not set on the provider."""
         self._skip_if_no_provider()
@@ -287,6 +313,28 @@ class TestStripePaymentFlow(TransactionCase):
         # Verify intent was cancelled
         cancel_call = mock_req.call_args_list[2]
         self.assertIn("payment_intents/pi_test_456/cancel", cancel_call[0][0])
+
+    def test_create_and_process_payment_no_reader(self):
+        """UserError raised when no reader is configured."""
+        self._skip_if_no_provider()
+        # Clear the reader ID
+        self.env.cr.execute(
+            "UPDATE pos_payment_method SET stripe_reader_id = NULL WHERE id = %s",
+            (self.payment_method.id,),
+        )
+        self.payment_method.invalidate_recordset()
+
+        intent_response = {"id": "pi_test_no_reader"}
+        with self._mock_stripe_request(return_value=intent_response):
+            with self.assertRaises(UserError):
+                self.payment_method.stripe_sd_create_and_process_payment(10.00)
+
+        # Restore reader for other tests
+        self.env.cr.execute(
+            "UPDATE pos_payment_method SET stripe_reader_id = %s WHERE id = %s",
+            ("tmr_test123", self.payment_method.id),
+        )
+        self.payment_method.invalidate_recordset()
 
     def test_create_and_process_payment_access_error(self):
         """Non-POS users cannot process payments."""

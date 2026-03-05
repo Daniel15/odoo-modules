@@ -1,5 +1,3 @@
-/* @odoo-module */
-
 import {PaymentScreen} from "@point_of_sale/app/screens/payment_screen/payment_screen";
 import {patch} from "@web/core/utils/patch";
 
@@ -17,6 +15,12 @@ patch(PaymentScreen.prototype, {
                 .then(() => {
                     this.currentOrder.remove_paymentline(line);
                     this.numberBuffer.reset();
+                })
+                .catch((error) => {
+                    console.error("Failed to cancel Stripe payment:", error);
+                    if (line) {
+                        line.set_payment_status("retry");
+                    }
                 });
             return;
         }

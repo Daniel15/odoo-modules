@@ -4,10 +4,9 @@
 import hashlib
 import hmac
 import logging
-import pprint
 from datetime import datetime, timezone
 
-from werkzeug.exceptions import Forbidden
+from werkzeug.exceptions import BadRequest, Forbidden
 
 from odoo import http
 from odoo.http import request
@@ -29,11 +28,10 @@ class PosStripeServerDrivenController(http.Controller):
         save_session=False,
     )
     def stripe_terminal_webhook(self):
-        event = request.get_json_data()
-        _logger.info(
-            "Terminal notification received from Stripe with data:\n%s",
-            pprint.pformat(event),
-        )
+        try:
+            event = request.get_json_data()
+        except Exception:
+            raise BadRequest("Invalid JSON payload") from None
 
         event_type = event.get("type")
         if event_type not in (
@@ -64,6 +62,12 @@ class PosStripeServerDrivenController(http.Controller):
 
         # Verify webhook signature
         self._verify_webhook_signature(payment_method_sudo)
+
+        _logger.info(
+            "Terminal notification received from Stripe: type=%s reader=%s",
+            event_type,
+            reader_id,
+        )
 
         # Extract payment intent info
         action = stripe_object.get("action", {})
@@ -121,19 +125,23 @@ class PosStripeServerDrivenController(http.Controller):
         webhook_secret = payment_method_sudo.stripe_terminal_webhook_secret
         if not webhook_secret:
             _logger.warning("Ignored webhook event due to undefined webhook secret")
-            return
+            raise Forbidden()
 
         notification_payload = request.httprequest.data.decode("utf-8")
         signature_header = request.httprequest.headers.get("Stripe-Signature", "")
         signature_entries = signature_header.split(",")
-        signature_data = {}
+        timestamp = None
+        v1_signatures = []
         for entry in signature_entries:
             parts = entry.strip().split("=", 1)
             if len(parts) == 2:
-                signature_data[parts[0]] = parts[1]
+                if parts[0] == "t":
+                    timestamp = parts[1]
+                elif parts[0] == "v1":
+                    v1_signatures.append(parts[1])
 
         # Retrieve the timestamp
-        event_timestamp = int(signature_data.get("t", "0"))
+        event_timestamp = int(timestamp or "0")
         if not event_timestamp:
             _logger.warning("Received notification with missing timestamp")
             raise Forbidden()
@@ -149,19 +157,20 @@ class PosStripeServerDrivenController(http.Controller):
             )
             raise Forbidden()
 
-        # Retrieve the received signature
-        received_signature = signature_data.get("v1")
-        if not received_signature:
+        # Retrieve the received signatures
+        if not v1_signatures:
             _logger.warning("Received notification with missing signature")
             raise Forbidden()
 
-        # Compare signatures
+        # Compare signatures - accept if any provided v1 signature matches
         signed_payload = f"{event_timestamp}.{notification_payload}"
         expected_signature = hmac.new(
             webhook_secret.encode("utf-8"),
             signed_payload.encode("utf-8"),
             hashlib.sha256,
         ).hexdigest()
-        if not hmac.compare_digest(received_signature, expected_signature):
+        if not any(
+            hmac.compare_digest(sig, expected_signature) for sig in v1_signatures
+        ):
             _logger.warning("Received notification with invalid signature")
             raise Forbidden()
