@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from odoo.exceptions import AccessError, UserError
 from odoo.tests.common import TransactionCase
+from odoo.tools import mute_logger
 
 
 class TestPosPaymentMethodStripeReaders(TransactionCase):
@@ -175,6 +176,7 @@ class TestPosPaymentMethodCreateWebhook(TransactionCase):
             self.payment_method.stripe_terminal_webhook_secret, "whsec_existing"
         )
 
+    @mute_logger("odoo.addons.pos_stripe_server_driven.models.pos_payment_method")
     def test_create_webhook_stripe_error(self):
         """Returns error when Stripe returns an error creating the webhook."""
         self._skip_if_no_provider()
@@ -188,6 +190,7 @@ class TestPosPaymentMethodCreateWebhook(TransactionCase):
         self.assertEqual(result["params"]["type"], "danger")
         self.assertFalse(self.payment_method.stripe_terminal_webhook_secret)
 
+    @mute_logger("odoo.addons.pos_stripe_server_driven.models.pos_payment_method")
     def test_create_webhook_missing_secret_in_response(self):
         """Returns error when Stripe response has no secret."""
         self._skip_if_no_provider()
