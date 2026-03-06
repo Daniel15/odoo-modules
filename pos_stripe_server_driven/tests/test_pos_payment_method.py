@@ -318,7 +318,7 @@ class TestStripePaymentFlow(TransactionCase):
         self.assertIn("payment_intents/pi_test_456/cancel", cancel_call[0][0])
 
     def test_create_and_process_payment_no_reader(self):
-        """UserError raised when no reader is configured."""
+        """UserError raised before any API call when no reader is configured."""
         self._skip_if_no_provider()
         # Clear the reader ID
         self.env.cr.execute(
@@ -327,10 +327,11 @@ class TestStripePaymentFlow(TransactionCase):
         )
         self.payment_method.invalidate_recordset()
 
-        intent_response = {"id": "pi_test_no_reader"}
-        with self._mock_stripe_request(return_value=intent_response):
+        with self._mock_stripe_request() as mock_req:
             with self.assertRaises(UserError):
                 self.payment_method.stripe_sd_create_and_process_payment(10.00)
+            # No Stripe API calls should have been made
+            mock_req.assert_not_called()
 
         # Restore reader for other tests
         self.env.cr.execute(
@@ -552,3 +553,74 @@ class TestWebhookFindPosConfigs(TransactionCase):
         self._skip_if_no_provider()
         configs = self._call_find_pos_configs(self.payment_method)
         self.assertFalse(configs)
+
+
+class TestWebhookSignatureVerification(TransactionCase):
+    """Tests for _verify_webhook_signature edge cases."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.provider = cls.env["payment.provider"].search(
+            [("code", "=", "stripe"), ("company_id", "=", cls.env.company.id)],
+            limit=1,
+        )
+        if not cls.provider:
+            return
+
+        journal = cls.env["account.journal"].search(
+            [("type", "=", "bank"), ("company_id", "=", cls.env.company.id)],
+            limit=1,
+        )
+        cls.payment_method = cls.env["pos.payment.method"].create(
+            {
+                "name": "Stripe Terminal Sig Test",
+                "journal_id": journal.id if journal else False,
+                "use_payment_terminal": "stripe_server_driven",
+                "stripe_terminal_webhook_secret": "whsec_test_secret",
+            }
+        )
+
+    def _skip_if_no_provider(self):
+        if not self.provider:
+            self.skipTest("No Stripe provider configured")
+
+    def _call_verify(self, signature_header, payload=b"{}"):
+        from unittest.mock import MagicMock
+
+        from werkzeug.exceptions import Forbidden
+
+        from ..controllers.main import PosStripeServerDrivenController
+
+        controller = PosStripeServerDrivenController()
+        mock_request = MagicMock()
+        mock_request.httprequest.data = payload
+        mock_request.httprequest.headers = {"Stripe-Signature": signature_header}
+        with patch(
+            "odoo.addons.pos_stripe_server_driven.controllers.main.request",
+            mock_request,
+        ):
+            with self.assertRaises(Forbidden):
+                controller._verify_webhook_signature(self.payment_method)
+
+    @mute_logger("odoo.addons.pos_stripe_server_driven.controllers.main")
+    def test_non_integer_timestamp_raises_forbidden(self):
+        """Non-integer timestamp in Stripe-Signature raises Forbidden."""
+        self._skip_if_no_provider()
+        self._call_verify("t=not_a_number,v1=abc123")
+
+    @mute_logger("odoo.addons.pos_stripe_server_driven.controllers.main")
+    def test_future_timestamp_raises_forbidden(self):
+        """Timestamp far in the future raises Forbidden."""
+        self._skip_if_no_provider()
+        # Use a timestamp 1 hour in the future (well beyond the 10-minute tolerance)
+        import time
+
+        future_ts = int(time.time()) + 3600
+        self._call_verify(f"t={future_ts},v1=abc123")
+
+    @mute_logger("odoo.addons.pos_stripe_server_driven.controllers.main")
+    def test_missing_timestamp_raises_forbidden(self):
+        """Missing timestamp in Stripe-Signature raises Forbidden."""
+        self._skip_if_no_provider()
+        self._call_verify("v1=abc123")

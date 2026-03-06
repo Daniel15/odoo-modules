@@ -141,18 +141,22 @@ class PosStripeServerDrivenController(http.Controller):
                     v1_signatures.append(parts[1])
 
         # Retrieve the timestamp
-        event_timestamp = int(timestamp or "0")
-        if not event_timestamp:
+        if not timestamp:
             _logger.warning("Received notification with missing timestamp")
             raise Forbidden()
-
-        # Check timestamp age
-        if (
-            datetime.now(timezone.utc).timestamp() - event_timestamp
-            > WEBHOOK_AGE_TOLERANCE
-        ):
+        try:
+            event_timestamp = int(timestamp)
+        except ValueError:
             _logger.warning(
-                "Received notification with outdated timestamp: %s",
+                "Received notification with invalid timestamp: %s", timestamp
+            )
+            raise Forbidden() from None
+
+        # Check timestamp age (reject both outdated and far-future timestamps)
+        diff = datetime.now(timezone.utc).timestamp() - event_timestamp
+        if abs(diff) > WEBHOOK_AGE_TOLERANCE:
+            _logger.warning(
+                "Received notification with timestamp outside tolerance: %s",
                 event_timestamp,
             )
             raise Forbidden()
