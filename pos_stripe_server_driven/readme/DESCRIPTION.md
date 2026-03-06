@@ -2,9 +2,11 @@ This module integrates the Odoo Point of Sale with Stripe Terminal using the **s
 
 This means the terminal reader can be on any network — it only needs an internet connection to communicate with Stripe's servers. This is especially useful with the Stripe Reader S710 and Verifone V660p terminals, as these terminals have cellular connectivity.
 
-**Supported hardware:** Stripe Terminal readers that support the server-driven integration. This includes the WisePOS E, Stripe Reader S700/S710, and Verifone smart readers.
+## Supported hardware
 
-**Features:**
+Stripe Terminal readers that support the server-driven integration. This includes the WisePOS E, Stripe Reader S700/S710, and Verifone smart readers.
+
+## Features
 
 - No LAN requirement between POS and card reader
 - Webhook-based real-time payment status updates

@@ -185,6 +185,14 @@ class PosPaymentMethod(models.Model):
         if not self.env.user.has_group("point_of_sale.group_pos_user"):
             raise AccessError(_("Do not have access to process Stripe payments"))
 
+        if not self.stripe_reader_id:
+            raise UserError(
+                _(
+                    "No Stripe reader is configured for this payment method. "
+                    "Please select a reader before processing payments."
+                )
+            )
+
         currency = self.journal_id.currency_id or self.company_id.currency_id
         provider = self.sudo()._get_stripe_payment_provider()
 
@@ -217,13 +225,6 @@ class PosPaymentMethod(models.Model):
         payment_intent_id = intent_result["id"]
 
         # Hand off to reader
-        if not self.stripe_reader_id:
-            raise UserError(
-                _(
-                    "No Stripe reader is configured for this payment method. "
-                    "Please select a reader before processing payments."
-                )
-            )
         quoted_reader = werkzeug.urls.url_quote(self.stripe_reader_id)
         reader_endpoint = f"terminal/readers/{quoted_reader}/process_payment_intent"
         process_result = provider._stripe_make_request(
