@@ -122,7 +122,18 @@ class PosStripeServerDrivenController(http.Controller):
 
     def _verify_webhook_signature(self, payment_method_sudo):
         """Verify the Stripe webhook signature using HMAC-SHA256."""
-        webhook_secret = payment_method_sudo.stripe_terminal_webhook_secret
+        provider = (
+            request.env["payment.provider"]
+            .sudo()
+            .search(
+                [
+                    ("code", "=", "stripe"),
+                    ("company_id", "=", payment_method_sudo.company_id.id),
+                ],
+                limit=1,
+            )
+        )
+        webhook_secret = provider.stripe_terminal_webhook_secret if provider else False
         if not webhook_secret:
             _logger.warning("Ignored webhook event due to undefined webhook secret")
             raise Forbidden()

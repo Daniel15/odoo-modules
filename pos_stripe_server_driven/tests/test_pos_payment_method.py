@@ -102,26 +102,13 @@ class TestPosPaymentMethodStripeReaders(TransactionCase):
         self.assertIn("Unknown error", str(ctx.exception))
 
 
-class TestPosPaymentMethodCreateWebhook(TransactionCase):
+class TestProviderCreateWebhook(TransactionCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.provider = cls.env["payment.provider"].search(
             [("code", "=", "stripe"), ("company_id", "=", cls.env.company.id)],
             limit=1,
-        )
-        if not cls.provider:
-            return
-        journal = cls.env["account.journal"].search(
-            [("type", "=", "bank"), ("company_id", "=", cls.env.company.id)],
-            limit=1,
-        )
-        cls.payment_method = cls.env["pos.payment.method"].create(
-            {
-                "name": "Stripe Terminal Test",
-                "journal_id": journal.id if journal else False,
-                "use_payment_terminal": "stripe_server_driven",
-            }
         )
 
     def _skip_if_no_provider(self):
@@ -136,15 +123,15 @@ class TestPosPaymentMethodCreateWebhook(TransactionCase):
         )
 
     def test_create_webhook_success(self):
-        """Successfully creates a webhook and saves the secret."""
+        """Successfully creates a webhook and saves the secret on provider."""
         self._skip_if_no_provider()
-        self.payment_method.stripe_terminal_webhook_secret = False
+        self.provider.stripe_terminal_webhook_secret = False
         mock_response = {"secret": "whsec_test123"}
         with (
             self._mock_stripe_request(return_value=mock_response) as mock_req,
             patch.object(type(self.provider), "stripe_secret_key", new="sk_test_fake"),
         ):
-            result = self.payment_method.action_stripe_sd_create_webhook()
+            result = self.provider.action_stripe_sd_create_webhook()
             mock_req.assert_called_once()
             call_args = mock_req.call_args
             self.assertEqual(call_args[0][0], "webhook_endpoints")
@@ -157,63 +144,59 @@ class TestPosPaymentMethodCreateWebhook(TransactionCase):
                     "terminal.reader.action_failed",
                 ],
             )
-        self.assertEqual(
-            self.payment_method.stripe_terminal_webhook_secret, "whsec_test123"
-        )
+        self.assertEqual(self.provider.stripe_terminal_webhook_secret, "whsec_test123")
         self.assertEqual(result["tag"], "display_notification")
         self.assertEqual(result["params"]["type"], "info")
 
     def test_create_webhook_already_set(self):
         """Returns warning when webhook secret is already configured."""
         self._skip_if_no_provider()
-        self.payment_method.stripe_terminal_webhook_secret = "whsec_existing"
+        self.provider.stripe_terminal_webhook_secret = "whsec_existing"
         with self._mock_stripe_request() as mock_req:
-            result = self.payment_method.action_stripe_sd_create_webhook()
+            result = self.provider.action_stripe_sd_create_webhook()
             mock_req.assert_not_called()
         self.assertEqual(result["params"]["type"], "warning")
         # Secret unchanged
-        self.assertEqual(
-            self.payment_method.stripe_terminal_webhook_secret, "whsec_existing"
-        )
+        self.assertEqual(self.provider.stripe_terminal_webhook_secret, "whsec_existing")
 
-    @mute_logger("odoo.addons.pos_stripe_server_driven.models.pos_payment_method")
+    @mute_logger("odoo.addons.pos_stripe_server_driven.models.payment_provider")
     def test_create_webhook_stripe_error(self):
         """Returns error when Stripe returns an error creating the webhook."""
         self._skip_if_no_provider()
-        self.payment_method.stripe_terminal_webhook_secret = False
+        self.provider.stripe_terminal_webhook_secret = False
         mock_response = {"error": {"message": "Invalid API key"}}
         with (
             self._mock_stripe_request(return_value=mock_response),
             patch.object(type(self.provider), "stripe_secret_key", new="sk_test_fake"),
         ):
-            result = self.payment_method.action_stripe_sd_create_webhook()
+            result = self.provider.action_stripe_sd_create_webhook()
         self.assertEqual(result["params"]["type"], "danger")
-        self.assertFalse(self.payment_method.stripe_terminal_webhook_secret)
+        self.assertFalse(self.provider.stripe_terminal_webhook_secret)
 
-    @mute_logger("odoo.addons.pos_stripe_server_driven.models.pos_payment_method")
+    @mute_logger("odoo.addons.pos_stripe_server_driven.models.payment_provider")
     def test_create_webhook_missing_secret_in_response(self):
         """Returns error when Stripe response has no secret."""
         self._skip_if_no_provider()
-        self.payment_method.stripe_terminal_webhook_secret = False
+        self.provider.stripe_terminal_webhook_secret = False
         mock_response = {"id": "we_123"}  # No "secret" key
         with (
             self._mock_stripe_request(return_value=mock_response),
             patch.object(type(self.provider), "stripe_secret_key", new="sk_test_fake"),
         ):
-            result = self.payment_method.action_stripe_sd_create_webhook()
+            result = self.provider.action_stripe_sd_create_webhook()
         self.assertEqual(result["params"]["type"], "danger")
-        self.assertFalse(self.payment_method.stripe_terminal_webhook_secret)
+        self.assertFalse(self.provider.stripe_terminal_webhook_secret)
 
     def test_create_webhook_no_secret_key(self):
         """Returns error when Stripe secret key is not set on the provider."""
         self._skip_if_no_provider()
-        self.payment_method.stripe_terminal_webhook_secret = False
+        self.provider.stripe_terminal_webhook_secret = False
         with patch.object(
             type(self.provider),
             "stripe_secret_key",
             new_callable=lambda: property(lambda _self: ""),
         ):
-            result = self.payment_method.action_stripe_sd_create_webhook()
+            result = self.provider.action_stripe_sd_create_webhook()
         self.assertEqual(result["params"]["type"], "danger")
 
 
@@ -465,7 +448,6 @@ class TestWebhookFindPosConfigs(TransactionCase):
                 "name": "Stripe Terminal Webhook Test",
                 "journal_id": journal.id if journal else False,
                 "use_payment_terminal": "stripe_server_driven",
-                "stripe_terminal_webhook_secret": "whsec_test",
             }
         )
         cls.env.cr.execute(
@@ -568,6 +550,8 @@ class TestWebhookSignatureVerification(TransactionCase):
         if not cls.provider:
             return
 
+        cls.provider.stripe_terminal_webhook_secret = "whsec_test_secret"
+
         journal = cls.env["account.journal"].search(
             [("type", "=", "bank"), ("company_id", "=", cls.env.company.id)],
             limit=1,
@@ -577,7 +561,6 @@ class TestWebhookSignatureVerification(TransactionCase):
                 "name": "Stripe Terminal Sig Test",
                 "journal_id": journal.id if journal else False,
                 "use_payment_terminal": "stripe_server_driven",
-                "stripe_terminal_webhook_secret": "whsec_test_secret",
             }
         )
 
@@ -594,6 +577,7 @@ class TestWebhookSignatureVerification(TransactionCase):
 
         controller = PosStripeServerDrivenController()
         mock_request = MagicMock()
+        mock_request.env = self.env
         mock_request.httprequest.data = payload
         mock_request.httprequest.headers = {"Stripe-Signature": signature_header}
         with patch(

@@ -52,11 +52,12 @@ The CLI prints a webhook signing secret (`whsec_...`). Keep this for step 3.
 
 ## 3. Configure Odoo
 
-1. Go to **Point of Sale > Configuration > Payment Methods**
-2. Create a new payment method with terminal type **Stripe (Server-driven)**
-3. Select the simulated reader (`tmr_xxx`) from the **Stripe Reader** dropdown
-4. Paste the `whsec_...` secret from step 2 into the **Webhook Signing Secret** field
-5. Go to **Point of Sale > Configuration**, and assign the payment method to the
+1. Go to **Invoicing > Payment Providers** and open the Stripe provider
+2. Paste the `whsec_...` secret from step 2 into the **Terminal Webhook Secret** field
+3. Go to **Point of Sale > Configuration > Payment Methods**
+4. Create a new payment method with terminal type **Stripe (Server-driven)**
+5. Select the simulated reader (`tmr_xxx`) from the **Stripe Reader** dropdown
+6. Go to **Point of Sale > Configuration**, and assign the payment method to the
    relevant POS configuration
 
 ## 4. Test Scenarios

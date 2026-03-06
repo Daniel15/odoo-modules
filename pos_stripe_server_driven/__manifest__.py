@@ -8,6 +8,7 @@
     "category": "Sales/Point of Sale",
     "depends": ["point_of_sale", "payment_stripe"],
     "data": [
+        "views/payment_provider_views.xml",
         "views/pos_payment_method_views.xml",
     ],
     "assets": {

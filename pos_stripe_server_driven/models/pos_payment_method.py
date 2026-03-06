@@ -20,10 +20,6 @@ class PosPaymentMethod(models.Model):
         help="The Stripe terminal reader ID (tmr_xxx)",
         copy=False,
     )
-    stripe_terminal_webhook_secret = fields.Char(
-        help="Webhook signing secret for terminal events",
-        copy=False,
-    )
 
     def _get_payment_terminal_selection(self):
         return super()._get_payment_terminal_selection() + [
@@ -99,75 +95,6 @@ class PosPaymentMethod(models.Model):
     def _stripe_calculate_amount(self, amount):
         currency = self.journal_id.currency_id or self.company_id.currency_id
         return int(round(amount / currency.rounding))
-
-    def action_stripe_sd_create_webhook(self):
-        """Create a Stripe webhook for terminal events.
-
-        :return: A feedback notification
-        :rtype: dict
-        """
-        self.ensure_one()
-
-        if self.stripe_terminal_webhook_secret:
-            message = _("Your Stripe Webhook is already set up.")
-            notification_type = "warning"
-        else:
-            provider = self._get_stripe_payment_provider()
-            if not provider.stripe_secret_key:
-                message = _(
-                    "You cannot create a Stripe Webhook if your Stripe Secret"
-                    " Key is not set."
-                )
-                notification_type = "danger"
-            else:
-                from odoo.addons.payment_stripe import const as stripe_const
-
-                from ..controllers.main import (
-                    PosStripeServerDrivenController,
-                )
-
-                base_url = (
-                    self.env["ir.config_parameter"].sudo().get_param("web.base.url")
-                )
-                webhook_url = base_url + PosStripeServerDrivenController._webhook_url
-                webhook = provider._stripe_make_request(
-                    "webhook_endpoints",
-                    payload={
-                        "url": webhook_url,
-                        "enabled_events[]": [
-                            "terminal.reader.action_succeeded",
-                            "terminal.reader.action_failed",
-                        ],
-                        "api_version": stripe_const.API_VERSION,
-                    },
-                )
-                error = webhook.get("error")
-                secret = webhook.get("secret")
-                if error or not secret:
-                    _logger.error(
-                        "Error creating Stripe webhook endpoint: %s",
-                        error or webhook,
-                    )
-                    message = _(
-                        "Stripe returned an error while creating the webhook."
-                        " Please check your Stripe configuration and logs."
-                    )
-                    notification_type = "danger"
-                else:
-                    self.stripe_terminal_webhook_secret = secret
-                    message = _("Your Stripe Webhook was successfully set up!")
-                    notification_type = "info"
-
-        return {
-            "type": "ir.actions.client",
-            "tag": "display_notification",
-            "params": {
-                "message": message,
-                "sticky": False,
-                "type": notification_type,
-                "next": {"type": "ir.actions.act_window_close"},
-            },
-        }
 
     def action_stripe_sd_provider_settings(self):
         self.ensure_one()
