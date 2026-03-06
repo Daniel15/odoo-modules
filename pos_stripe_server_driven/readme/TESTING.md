@@ -1,7 +1,6 @@
 # Testing pos_stripe_server_driven with a Simulated Reader
 
-This guide describes how to manually test the module end-to-end using the Stripe CLI and
-a simulated terminal reader, without needing real hardware.
+This guide describes how to manually test the module end-to-end using the Stripe CLI and a simulated terminal reader, without needing real hardware.
 
 ## Prerequisites
 
