@@ -14,6 +14,10 @@
         "point_of_sale._assets_pos": [
             "pos_stripe_server_driven/static/src/**/*",
         ],
+        "web.assets_unit_tests": [
+            "pos_stripe_server_driven/static/src/app/utils.esm.js",
+            "pos_stripe_server_driven/static/tests/unit/**/*",
+        ],
     },
     "author": "Daniel Lo Nigro",
     "maintainers": ["Daniel15"],
