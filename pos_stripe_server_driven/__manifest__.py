@@ -11,6 +11,9 @@
         "views/payment_provider_views.xml",
         "views/pos_payment_method_views.xml",
     ],
+    "images": [
+        "static/description/banner.png",
+    ],
     "assets": {
         "point_of_sale._assets_pos": [
             "pos_stripe_server_driven/static/src/**/*",
