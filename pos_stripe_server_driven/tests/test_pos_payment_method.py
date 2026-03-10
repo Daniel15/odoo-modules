@@ -56,19 +56,20 @@ class TestPosPaymentMethodStripeReaders(TransactionCase):
             ],
         )
 
-    def test_api_exception_raises_user_error(self):
-        """An exception from the Stripe API raises UserError."""
+    @mute_logger("odoo.addons.pos_stripe_server_driven.models.pos_payment_method")
+    def test_api_exception_returns_empty_list(self):
+        """An exception from the Stripe API returns an empty list."""
         if not self.provider:
             self.skipTest("No Stripe provider configured")
         with self._mock_stripe_request(
             side_effect=ConnectionError("Network unreachable")
         ):
-            with self.assertRaises(UserError) as ctx:
-                self.payment_method_model._get_stripe_readers()
-        self.assertIn("Network unreachable", str(ctx.exception))
+            result = self.payment_method_model._get_stripe_readers()
+        self.assertEqual(result, [])
 
-    def test_error_response_raises_user_error(self):
-        """An error in the Stripe response raises UserError with the message."""
+    @mute_logger("odoo.addons.pos_stripe_server_driven.models.pos_payment_method")
+    def test_error_response_returns_empty_list(self):
+        """An error in the Stripe response returns an empty list."""
         if not self.provider:
             self.skipTest("No Stripe provider configured")
         mock_response = {
@@ -78,28 +79,27 @@ class TestPosPaymentMethodStripeReaders(TransactionCase):
             }
         }
         with self._mock_stripe_request(return_value=mock_response):
-            with self.assertRaises(UserError) as ctx:
-                self.payment_method_model._get_stripe_readers()
-        self.assertIn("Invalid API Key provided", str(ctx.exception))
+            result = self.payment_method_model._get_stripe_readers()
+        self.assertEqual(result, [])
 
-    def test_empty_response_raises_user_error(self):
-        """A None/empty response from Stripe raises UserError."""
+    @mute_logger("odoo.addons.pos_stripe_server_driven.models.pos_payment_method")
+    def test_empty_response_returns_empty_list(self):
+        """A None/empty response from Stripe returns an empty list."""
         if not self.provider:
             self.skipTest("No Stripe provider configured")
         with self._mock_stripe_request(return_value=None):
-            with self.assertRaises(UserError) as ctx:
-                self.payment_method_model._get_stripe_readers()
-        self.assertIn("Empty response", str(ctx.exception))
+            result = self.payment_method_model._get_stripe_readers()
+        self.assertEqual(result, [])
 
-    def test_error_without_message_raises_user_error(self):
-        """An error response without a message field uses fallback text."""
+    @mute_logger("odoo.addons.pos_stripe_server_driven.models.pos_payment_method")
+    def test_error_without_message_returns_empty_list(self):
+        """An error response without a message field returns an empty list."""
         if not self.provider:
             self.skipTest("No Stripe provider configured")
         mock_response = {"error": {"type": "api_error"}}
         with self._mock_stripe_request(return_value=mock_response):
-            with self.assertRaises(UserError) as ctx:
-                self.payment_method_model._get_stripe_readers()
-        self.assertIn("Unknown error", str(ctx.exception))
+            result = self.payment_method_model._get_stripe_readers()
+        self.assertEqual(result, [])
 
 
 class TestProviderCreateWebhook(TransactionCase):
