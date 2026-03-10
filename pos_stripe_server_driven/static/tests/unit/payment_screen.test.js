@@ -1,13 +1,14 @@
 import {describe, expect, test} from "@odoo/hoot";
-import {filterUnconfiguredStripeSD} from "@pos_stripe_server_driven/app/utils.esm";
+import {filterUnconfiguredStripePaymentMethods} from "@pos_stripe_server_driven/app/utils.esm";
 
-describe("filterUnconfiguredStripeSD", () => {
+describe("filterUnconfiguredStripePaymentMethods", () => {
     test("keeps non-Stripe payment methods unchanged", () => {
         const methods = [
             {name: "Cash", use_payment_terminal: false, stripe_reader_id: false},
             {name: "Bank", use_payment_terminal: "adyen", stripe_reader_id: false},
         ];
-        const {configured, unconfiguredNames} = filterUnconfiguredStripeSD(methods);
+        const {configured, unconfiguredNames} =
+            filterUnconfiguredStripePaymentMethods(methods);
         expect(configured).toHaveLength(2);
         expect(unconfiguredNames).toHaveLength(0);
     });
@@ -20,7 +21,8 @@ describe("filterUnconfiguredStripeSD", () => {
                 stripe_reader_id: "tmr_abc123",
             },
         ];
-        const {configured, unconfiguredNames} = filterUnconfiguredStripeSD(methods);
+        const {configured, unconfiguredNames} =
+            filterUnconfiguredStripePaymentMethods(methods);
         expect(configured).toHaveLength(1);
         expect(configured[0].name).toBe("Stripe Terminal");
         expect(unconfiguredNames).toHaveLength(0);
@@ -34,7 +36,8 @@ describe("filterUnconfiguredStripeSD", () => {
                 stripe_reader_id: false,
             },
         ];
-        const {configured, unconfiguredNames} = filterUnconfiguredStripeSD(methods);
+        const {configured, unconfiguredNames} =
+            filterUnconfiguredStripePaymentMethods(methods);
         expect(configured).toHaveLength(0);
         expect(unconfiguredNames).toEqual(["Stripe No Reader"]);
     });
@@ -54,7 +57,8 @@ describe("filterUnconfiguredStripeSD", () => {
             },
             {name: "Bank", use_payment_terminal: "adyen", stripe_reader_id: false},
         ];
-        const {configured, unconfiguredNames} = filterUnconfiguredStripeSD(methods);
+        const {configured, unconfiguredNames} =
+            filterUnconfiguredStripePaymentMethods(methods);
         expect(configured).toHaveLength(3);
         expect(configured.map((m) => m.name)).toEqual([
             "Cash",
@@ -77,13 +81,16 @@ describe("filterUnconfiguredStripeSD", () => {
                 stripe_reader_id: false,
             },
         ];
-        const {configured, unconfiguredNames} = filterUnconfiguredStripeSD(methods);
+        const {configured, unconfiguredNames} =
+            filterUnconfiguredStripePaymentMethods(methods);
         expect(configured).toHaveLength(0);
         expect(unconfiguredNames).toEqual(["Terminal A", "Terminal B"]);
     });
 
     test("handles empty input", () => {
-        const {configured, unconfiguredNames} = filterUnconfiguredStripeSD([]);
+        const {configured, unconfiguredNames} = filterUnconfiguredStripePaymentMethods(
+            []
+        );
         expect(configured).toHaveLength(0);
         expect(unconfiguredNames).toHaveLength(0);
     });

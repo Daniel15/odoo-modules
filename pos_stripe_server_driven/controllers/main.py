@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from werkzeug.exceptions import BadRequest, Forbidden
 
-from odoo import http
+from odoo import _, http
 from odoo.http import request
 
 _logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ class PosStripeServerDrivenController(http.Controller):
             failure_message = (
                 action.get("failure_message", "")
                 or stripe_object.get("last_error", {}).get("message", "")
-                or "Payment failed"
+                or _("Payment failed")
             )
 
         # Find POS configs and send bus notification

@@ -38,15 +38,17 @@ class PosPaymentMethod(models.Model):
             result = stripe_provider._stripe_make_request(
                 "terminal/readers", method="GET"
             )
-        except Exception as e:
-            raise UserError(_("Failed to fetch Stripe readers: %s", e)) from e
+        except Exception:
+            _logger.warning("Failed to fetch Stripe readers", exc_info=True)
+            return []
         if not result or result.get("error"):
             error_msg = (
-                result.get("error", {}).get("message", _("Unknown error"))
+                result.get("error", {}).get("message", "Unknown error")
                 if result
-                else _("Empty response")
+                else "Empty response"
             )
-            raise UserError(_("Failed to fetch Stripe readers: %s", error_msg))
+            _logger.warning("Failed to fetch Stripe readers: %s", error_msg)
+            return []
         readers = result.get("data", [])
         return [(r["id"], f"{r.get('label', '')} ({r['id']})") for r in readers]
 
@@ -79,15 +81,17 @@ class PosPaymentMethod(models.Model):
                 )
 
     def _get_stripe_payment_provider(self):
+        self.ensure_one()
+        company = self.company_id or self.env.company
         stripe_payment_provider = self.env["payment.provider"].search(
-            [("code", "=", "stripe"), ("company_id", "=", self.env.company.id)],
+            [("code", "=", "stripe"), ("company_id", "=", company.id)],
             limit=1,
         )
         if not stripe_payment_provider:
             raise UserError(
                 _(
                     "Stripe payment provider for company %s is missing",
-                    self.env.company.name,
+                    company.name,
                 )
             )
         return stripe_payment_provider

@@ -1,11 +1,11 @@
 import {PaymentScreen} from "@point_of_sale/app/screens/payment_screen/payment_screen";
-import {filterUnconfiguredStripeSD} from "@pos_stripe_server_driven/app/utils.esm";
+import {filterUnconfiguredStripePaymentMethods} from "@pos_stripe_server_driven/app/utils.esm";
 import {patch} from "@web/core/utils/patch";
 
 patch(PaymentScreen.prototype, {
     setup() {
         super.setup(...arguments);
-        const {configured} = filterUnconfiguredStripeSD(
+        const {configured} = filterUnconfiguredStripePaymentMethods(
             this.payment_methods_from_config
         );
         this.payment_methods_from_config = configured;

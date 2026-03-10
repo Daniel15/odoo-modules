@@ -4,7 +4,7 @@
  * @param {Array} paymentMethods - list of payment method records
  * @returns {{configured: Array, unconfiguredNames: string[]}}
  */
-export function filterUnconfiguredStripeSD(paymentMethods) {
+export function filterUnconfiguredStripePaymentMethods(paymentMethods) {
     const configured = [];
     const unconfiguredNames = [];
     for (const pm of paymentMethods) {
