@@ -1,26 +1,26 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <odoo>
-    <record id="payment_provider_view_form_stripe_sd" model="ir.ui.view">
-        <field name="name">payment.provider.form.stripe.server.driven</field>
+    <record id="payment_provider_view_form_stripe_sd_legacy" model="ir.ui.view">
+        <field name="name">payment.provider.form.stripe.server.driven.legacy</field>
         <field name="model">payment.provider</field>
-        <field name="inherit_id" ref="payment_stripe.payment_provider_form" />
+        <field
+            name="inherit_id"
+            ref="payment_stripe_terminal_base.payment_provider_view_form_stripe_terminal"
+        />
         <field name="arch" type="xml">
-            <xpath
-                expr="//group[@name='stripe_credentials']//label[@for='stripe_webhook_secret']"
-                position="before"
-            >
-                <label for="stripe_terminal_webhook_secret" />
-                <div class="o_row" col="2">
-                    <field name="stripe_terminal_webhook_secret" password="True" />
-                    <button
-                        name="action_stripe_sd_create_webhook"
-                        type="object"
-                        class="btn-primary"
-                        string="Generate your Webhook"
-                        invisible="stripe_terminal_webhook_secret or not stripe_secret_key"
-                    />
-                </div>
-            </xpath>
+            <field name="stripe_terminal_webhook_route_token" position="after">
+                <field name="stripe_terminal_legacy_webhook_secret" invisible="True" />
+            </field>
+            <button name="action_stripe_terminal_update_webhook" position="after">
+                <button
+                    name="action_stripe_terminal_retire_legacy_webhook"
+                    type="object"
+                    class="btn-secondary"
+                    string="Retire Legacy Webhook"
+                    invisible="not stripe_terminal_legacy_webhook_secret"
+                    confirm="Remove the old endpoint from Stripe before clearing its signing secret. Continue?"
+                />
+            </button>
         </field>
     </record>
 </odoo>

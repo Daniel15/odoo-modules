@@ -1,5 +1,5 @@
 1. In **Invoicing > Payment Providers**, enable the Stripe payment provider.
-   - Click the "Generate your Webhook" button next to **Terminal Webhook Secret** to configure a webhook for terminal events. This only needs to be done once, regardless of how many Stripe terminals you have.
+   - Click **Create Terminal Webhook** next to **Terminal Webhook Secret**. This creates a provider-bound webhook and only needs to be done once, regardless of how many Stripe terminals you have.
 2. In **Point of Sale > Configuration > Payment Methods**, add a Stripe payment method.
    - Integrate with: Select **Stripe (server-driven)**.
    - Stripe Reader ID: Select the correct terminal.
