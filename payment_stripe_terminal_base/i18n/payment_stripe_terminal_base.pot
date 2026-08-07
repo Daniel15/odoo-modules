@@ -1,0 +1,140 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* payment_stripe_terminal_base
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 18.0-20260209\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-07 04:08+0000\n"
+"PO-Revision-Date: 2026-08-07 04:08+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: payment_stripe_terminal_base
+#: model_terms:ir.ui.view,arch_db:payment_stripe_terminal_base.payment_provider_view_form_stripe_terminal
+msgid "Create Terminal Webhook"
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#. odoo-python
+#: code:addons/payment_stripe_terminal_base/models/payment_provider.py:0
+msgid "Create the Stripe Terminal webhook before updating it."
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#: model:ir.model,name:payment_stripe_terminal_base.model_payment_provider
+msgid "Payment Provider"
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#: model:ir.model.fields,help:payment_stripe_terminal_base.field_payment_provider__stripe_terminal_webhook_url
+msgid "Provider-bound URL to use for this Stripe Terminal webhook."
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#: model:ir.model.fields,help:payment_stripe_terminal_base.field_payment_provider__stripe_terminal_webhook_route_token
+msgid "Random token that routes Terminal webhooks to this provider"
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#: model:ir.model.fields,field_description:payment_stripe_terminal_base.field_payment_provider__stripe_terminal_webhook_endpoint_id
+msgid "Stripe Terminal Webhook Endpoint ID"
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#: model:ir.model.fields,field_description:payment_stripe_terminal_base.field_payment_provider__stripe_terminal_webhook_route_token
+msgid "Stripe Terminal Webhook Route Token"
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#: model:ir.model.fields,field_description:payment_stripe_terminal_base.field_payment_provider__stripe_terminal_webhook_secret
+msgid "Stripe Terminal Webhook Secret"
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#: model:ir.model.fields,field_description:payment_stripe_terminal_base.field_payment_provider__stripe_terminal_webhook_url
+msgid "Stripe Terminal Webhook URL"
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#. odoo-python
+#: code:addons/payment_stripe_terminal_base/models/payment_provider.py:0
+msgid "Stripe Terminal webhook route tokens cannot be changed."
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#: model:ir.model.fields,help:payment_stripe_terminal_base.field_payment_provider__stripe_terminal_webhook_endpoint_id
+msgid ""
+"Stripe assigns this ID when the webhook is created through the API. It is "
+"not required when forwarding events with the Stripe CLI."
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#. odoo-python
+#: code:addons/payment_stripe_terminal_base/models/payment_provider.py:0
+msgid ""
+"Stripe returned an invalid response while creating the Terminal webhook: %s"
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#. odoo-python
+#: code:addons/payment_stripe_terminal_base/models/payment_provider.py:0
+msgid ""
+"Stripe returned an invalid response while updating the Terminal webhook: %s"
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#: model:ir.model.constraint,message:payment_stripe_terminal_base.constraint_payment_provider_stripe_terminal_webhook_route_token_unique
+msgid "The Stripe Terminal webhook route token must be unique."
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#: model_terms:ir.ui.view,arch_db:payment_stripe_terminal_base.payment_provider_view_form_stripe_terminal
+msgid "Update Terminal Webhook"
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#: model:ir.model.fields,help:payment_stripe_terminal_base.field_payment_provider__stripe_terminal_webhook_secret
+msgid ""
+"Webhook signing secret for Stripe Terminal events. For local testing, paste "
+"the secret printed by `stripe listen`."
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#. odoo-python
+#: code:addons/payment_stripe_terminal_base/models/payment_provider.py:0
+msgid ""
+"You cannot create a Stripe Terminal webhook if your Stripe Secret Key is not"
+" set."
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#. odoo-python
+#: code:addons/payment_stripe_terminal_base/models/payment_provider.py:0
+msgid ""
+"You cannot update the Stripe Terminal webhook if your Stripe Secret Key is "
+"not set."
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#. odoo-python
+#: code:addons/payment_stripe_terminal_base/models/payment_provider.py:0
+msgid "Your Stripe Terminal webhook is already set up."
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#. odoo-python
+#: code:addons/payment_stripe_terminal_base/models/payment_provider.py:0
+msgid "Your Stripe Terminal webhook was successfully set up!"
+msgstr ""
+
+#. module: payment_stripe_terminal_base
+#. odoo-python
+#: code:addons/payment_stripe_terminal_base/models/payment_provider.py:0
+msgid "Your Stripe Terminal webhook was successfully updated!"
+msgstr ""
