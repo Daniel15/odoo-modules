@@ -9,6 +9,7 @@ import time
 from werkzeug.exceptions import Forbidden
 
 from odoo.tests import HttpCase, tagged
+from odoo.tools import mute_logger
 
 
 @tagged("post_install", "-at_install")
@@ -69,6 +70,10 @@ class TestLegacyStripeTerminalWebhookController(HttpCase):
             allow_redirects=False,
         )
 
+    @mute_logger(
+        "odoo.addons.payment_stripe_terminal_base.models.payment_provider",
+        "odoo.addons.pos_stripe_server_driven.models.payment_provider",
+    )
     def test_signature_is_checked_before_json_parsing(self):
         response = self._post_webhook(b"not-json")
         self.assertEqual(response.status_code, 403)

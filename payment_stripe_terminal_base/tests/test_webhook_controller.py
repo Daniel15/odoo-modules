@@ -7,6 +7,7 @@ import json
 import time
 
 from odoo.tests import HttpCase, tagged
+from odoo.tools import mute_logger
 
 
 @tagged("post_install", "-at_install")
@@ -76,6 +77,7 @@ class TestStripeTerminalWebhookController(HttpCase):
         response = self._post_webhook(payload, self._signature_header(payload))
         self.assertEqual(response.status_code, 200)
 
+    @mute_logger("odoo.addons.payment_stripe_terminal_base.models.payment_provider")
     def test_signature_is_checked_before_json_parsing(self):
         response = self._post_webhook(b"not-json")
         self.assertEqual(response.status_code, 403)
@@ -85,6 +87,7 @@ class TestStripeTerminalWebhookController(HttpCase):
         response = self._post_webhook(payload, self._signature_header(payload))
         self.assertEqual(response.status_code, 400)
 
+    @mute_logger("odoo.addons.payment_stripe_terminal_base.controllers.main")
     def test_unknown_provider_route_is_rejected(self):
         payload = b"{}"
         response = self._post_webhook(
