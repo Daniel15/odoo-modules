@@ -105,19 +105,27 @@ class TestStripeTerminalWebhookConfiguration(StripeTerminalProviderCase):
         with (
             self._mock_stripe_request(side_effect=ValidationError("Stripe failed")),
             patch.object(type(self.provider), "stripe_secret_key", new="sk_test_fake"),
+            self.assertRaisesRegex(ValidationError, "Stripe failed"),
         ):
-            result = self.provider.action_stripe_terminal_create_webhook()
-        self.assertEqual(result["params"]["type"], "danger")
+            self.provider.action_stripe_terminal_create_webhook()
 
     @mute_logger("odoo.addons.payment_stripe_terminal_base.models.payment_provider")
     def test_create_webhook_requires_id_and_secret(self):
         with (
             self._mock_stripe_request(return_value={"id": "we_incomplete"}),
             patch.object(type(self.provider), "stripe_secret_key", new="sk_test_fake"),
+            self.assertRaisesRegex(ValidationError, "invalid response"),
         ):
-            result = self.provider.action_stripe_terminal_create_webhook()
+            self.provider.action_stripe_terminal_create_webhook()
         self.assertFalse(self.provider.stripe_terminal_webhook_endpoint_id)
-        self.assertEqual(result["params"]["type"], "danger")
+
+    def test_webhook_url_uses_provider_route_token(self):
+        self.provider.stripe_terminal_webhook_route_token = "route_existing"
+        self.assertTrue(
+            self.provider.stripe_terminal_webhook_url.endswith(
+                "/payment/stripe/terminal/webhook/route_existing"
+            )
+        )
 
     def test_update_webhook(self):
         self.provider.write(

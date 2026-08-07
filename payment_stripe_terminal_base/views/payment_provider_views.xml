@@ -28,8 +28,11 @@
                         invisible="not stripe_terminal_webhook_endpoint_id or not stripe_secret_key"
                     />
                 </div>
-                <label for="stripe_terminal_webhook_endpoint_id" />
-                <field name="stripe_terminal_webhook_endpoint_id" />
+                <field name="stripe_terminal_webhook_url" readonly="True" />
+                <field
+                    name="stripe_terminal_webhook_endpoint_id"
+                    invisible="not stripe_terminal_webhook_endpoint_id"
+                />
             </xpath>
         </field>
     </record>

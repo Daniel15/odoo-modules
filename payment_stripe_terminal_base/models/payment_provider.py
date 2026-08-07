@@ -27,12 +27,19 @@ class PaymentProvider(models.Model):
     _inherit = "payment.provider"
 
     stripe_terminal_webhook_secret = fields.Char(
-        help="Webhook signing secret for Stripe Terminal events",
+        help=(
+            "Webhook signing secret for Stripe Terminal events. For local testing, "
+            "paste the secret printed by `stripe listen`."
+        ),
         groups="base.group_system",
         copy=False,
     )
     stripe_terminal_webhook_endpoint_id = fields.Char(
-        help="Stripe webhook endpoint ID used for Terminal events",
+        string="Stripe Terminal Webhook Endpoint ID",
+        help=(
+            "Stripe assigns this ID when the webhook is created through the API. It "
+            "is not required when forwarding events with the Stripe CLI."
+        ),
         groups="base.group_system",
         copy=False,
         readonly=True,
@@ -42,6 +49,12 @@ class PaymentProvider(models.Model):
         groups="base.group_system",
         copy=False,
         readonly=True,
+    )
+    stripe_terminal_webhook_url = fields.Char(
+        string="Stripe Terminal Webhook URL",
+        compute="_compute_stripe_terminal_webhook_url",
+        help="Provider-bound URL to use for this Stripe Terminal webhook.",
+        groups="base.group_system",
     )
 
     _sql_constraints = [
@@ -68,6 +81,18 @@ class PaymentProvider(models.Model):
         if not self.stripe_terminal_webhook_route_token:
             self.stripe_terminal_webhook_route_token = secrets.token_urlsafe(32)
         return self.stripe_terminal_webhook_route_token
+
+    @api.depends("stripe_terminal_webhook_route_token")
+    def _compute_stripe_terminal_webhook_url(self):
+        for provider in self:
+            route_token = provider.stripe_terminal_webhook_route_token
+            provider.stripe_terminal_webhook_url = (
+                route_token
+                and werkzeug.urls.url_join(
+                    provider.get_base_url(),
+                    f"{TERMINAL_WEBHOOK_URL}/{werkzeug.urls.url_quote(route_token)}",
+                )
+            )
 
     def _stripe_terminal_get_webhook_url(self):
         self.ensure_one()
@@ -118,37 +143,21 @@ class PaymentProvider(models.Model):
             )
 
         route_token = self._stripe_terminal_ensure_webhook_route_token()
-        try:
-            webhook = self._stripe_make_request(
-                "webhook_endpoints",
-                payload=self._stripe_terminal_get_webhook_payload(
-                    include_api_version=True
-                ),
-                idempotency_key=f"odoo-terminal-webhook-{self.id}-{route_token}",
-            )
-        except ValidationError:
-            _logger.exception("Error creating Stripe Terminal webhook endpoint")
-            return self._stripe_terminal_webhook_notification(
-                _(
-                    "Stripe returned an error while creating the Terminal webhook. "
-                    "Please check your Stripe configuration and logs."
-                ),
-                "danger",
-            )
+        webhook = self._stripe_make_request(
+            "webhook_endpoints",
+            payload=self._stripe_terminal_get_webhook_payload(include_api_version=True),
+            idempotency_key=f"odoo-terminal-webhook-{self.id}-{route_token}",
+        )
         error = webhook.get("error")
         endpoint_id = webhook.get("id")
         secret = webhook.get("secret")
         if error or not endpoint_id or not secret:
-            _logger.error(
-                "Error creating Stripe Terminal webhook endpoint: %s",
-                error or webhook,
-            )
-            return self._stripe_terminal_webhook_notification(
+            raise ValidationError(
                 _(
-                    "Stripe returned an error while creating the Terminal webhook. "
-                    "Please check your Stripe configuration and logs."
-                ),
-                "danger",
+                    "Stripe returned an invalid response while creating the Terminal "
+                    "webhook: %s",
+                    error or webhook,
+                )
             )
 
         self.write(
@@ -177,31 +186,17 @@ class PaymentProvider(models.Model):
             )
 
         endpoint_id = werkzeug.urls.url_quote(self.stripe_terminal_webhook_endpoint_id)
-        try:
-            webhook = self._stripe_make_request(
-                f"webhook_endpoints/{endpoint_id}",
-                payload=self._stripe_terminal_get_webhook_payload(),
-            )
-        except ValidationError:
-            _logger.exception("Error updating Stripe Terminal webhook endpoint")
-            return self._stripe_terminal_webhook_notification(
-                _(
-                    "Stripe returned an error while updating the Terminal webhook. "
-                    "Please check your Stripe configuration and logs."
-                ),
-                "danger",
-            )
+        webhook = self._stripe_make_request(
+            f"webhook_endpoints/{endpoint_id}",
+            payload=self._stripe_terminal_get_webhook_payload(),
+        )
         if webhook.get("error"):
-            _logger.error(
-                "Error updating Stripe Terminal webhook endpoint: %s",
-                webhook["error"],
-            )
-            return self._stripe_terminal_webhook_notification(
+            raise ValidationError(
                 _(
-                    "Stripe returned an error while updating the Terminal webhook. "
-                    "Please check your Stripe configuration and logs."
-                ),
-                "danger",
+                    "Stripe returned an invalid response while updating the Terminal "
+                    "webhook: %s",
+                    webhook["error"],
+                )
             )
         return self._stripe_terminal_webhook_notification(
             _("Your Stripe Terminal webhook was successfully updated!"), "info"

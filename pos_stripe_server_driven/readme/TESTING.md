@@ -37,12 +37,15 @@ Note the reader `id` (e.g. `tmr_xxx`).
 
 ## 2. Start Webhook Forwarding
 
+In **Invoicing > Payment Providers**, open the Stripe provider and copy its
+**Stripe Terminal Webhook URL**.
+
 In a dedicated terminal, start the Stripe CLI webhook listener:
 
 ```bash
 stripe listen \
   --events terminal.reader.action_succeeded,terminal.reader.action_failed \
-  --forward-to http://localhost:8069/pos_stripe_server_driven/webhook
+  --forward-to <stripe-terminal-webhook-url>
 ```
 
 The CLI prints a webhook signing secret (`whsec_...`). Keep this for step 3.
@@ -54,10 +57,12 @@ The CLI prints a webhook signing secret (`whsec_...`). Keep this for step 3.
 
 1. Go to **Invoicing > Payment Providers** and open the Stripe provider
 2. Paste the `whsec_...` secret from step 2 into the **Terminal Webhook Secret** field
-3. Go to **Point of Sale > Configuration > Payment Methods**
-4. Create a new payment method with terminal type **Stripe (Server-driven)**
-5. Select the simulated reader (`tmr_xxx`) from the **Stripe Reader** dropdown
-6. Go to **Point of Sale > Configuration**, and assign the payment method to the
+3. Leave **Stripe Terminal Webhook Endpoint ID** empty; Stripe CLI forwarding does not
+   create or require an endpoint ID
+4. Go to **Point of Sale > Configuration > Payment Methods**
+5. Create a new payment method with terminal type **Stripe (Server-driven)**
+6. Select the simulated reader (`tmr_xxx`) from the **Stripe Reader** dropdown
+7. Go to **Point of Sale > Configuration**, and assign the payment method to the
    relevant POS configuration
 
 ## 4. Test Scenarios
