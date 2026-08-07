@@ -8,7 +8,8 @@ import time
 
 from werkzeug.exceptions import Forbidden
 
-from odoo.tests import HttpCase, tagged
+from odoo.exceptions import AccessError
+from odoo.tests import HttpCase, new_test_user, tagged
 from odoo.tools import mute_logger
 
 
@@ -43,6 +44,11 @@ class TestLegacyStripeTerminalWebhookController(HttpCase):
         )
         cls.provider.invalidate_recordset(
             ["state", "stripe_publishable_key", "stripe_secret_key"]
+        )
+        cls.pos_manager = new_test_user(
+            cls.env,
+            login="terminal_pos_manager",
+            groups="point_of_sale.group_pos_manager",
         )
 
     def setUp(self):
@@ -100,3 +106,10 @@ class TestLegacyStripeTerminalWebhookController(HttpCase):
         payload = b"[]"
         response = self._post_webhook(payload, self._signature_header(payload))
         self.assertEqual(response.status_code, 400)
+
+    def test_pos_manager_cannot_configure_terminal_webhooks(self):
+        provider = self.provider.with_user(self.pos_manager)
+        with self.assertRaisesRegex(AccessError, "Settings administrators"):
+            provider.action_stripe_sd_create_webhook()
+        with self.assertRaisesRegex(AccessError, "Settings administrators"):
+            provider.action_stripe_terminal_retire_legacy_webhook()

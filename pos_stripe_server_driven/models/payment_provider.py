@@ -25,12 +25,14 @@ class PaymentProvider(models.Model):
     def action_stripe_sd_create_webhook(self):
         """Compatibility action for the original POS provider view."""
         self.ensure_one()
+        self._stripe_terminal_check_webhook_configuration_access()
         if self.stripe_terminal_webhook_endpoint_id:
             return self.action_stripe_terminal_update_webhook()
         return self.action_stripe_terminal_create_webhook()
 
     def action_stripe_terminal_retire_legacy_webhook(self):
         self.ensure_one()
+        self._stripe_terminal_check_webhook_configuration_access()
         self.stripe_terminal_legacy_webhook_secret = False
         return self._stripe_terminal_webhook_notification(
             _(

@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 from werkzeug.exceptions import Forbidden
 
-from odoo.exceptions import ValidationError
-from odoo.tests.common import TransactionCase
+from odoo.exceptions import AccessError, ValidationError
+from odoo.tests.common import TransactionCase, new_test_user
 from odoo.tools import mute_logger
 
 from odoo.addons.payment_stripe import const as stripe_const
@@ -214,6 +214,36 @@ class TestStripeTerminalWebhookConfiguration(StripeTerminalProviderCase):
             self.assertRaisesRegex(ValidationError, "invalid response"),
         ):
             self.provider.action_stripe_terminal_update_webhook()
+
+    def test_non_system_user_cannot_configure_webhooks(self):
+        user = new_test_user(
+            self.env,
+            login="terminal_access_manager",
+            groups="base.group_erp_manager",
+        )
+        provider = self.provider.with_user(user)
+        with self._mock_stripe_request() as request:
+            with self.assertRaisesRegex(AccessError, "Settings administrators"):
+                provider.action_stripe_terminal_create_webhook()
+            with self.assertRaisesRegex(AccessError, "Settings administrators"):
+                provider.action_stripe_terminal_update_webhook()
+        request.assert_not_called()
+
+    def test_non_system_user_cannot_access_webhook_credentials(self):
+        user = new_test_user(
+            self.env,
+            login="terminal_field_manager",
+            groups="base.group_erp_manager",
+        )
+        provider = self.provider.with_user(user)
+        protected_fields = [
+            "stripe_terminal_webhook_secret",
+            "stripe_terminal_webhook_endpoint_id",
+            "stripe_terminal_webhook_route_token",
+        ]
+        for operation in ("read", "write"):
+            with self.assertRaises(AccessError):
+                provider.check_field_access_rights(operation, protected_fields)
 
 
 class TestStripeTerminalWebhookSignature(StripeTerminalProviderCase):

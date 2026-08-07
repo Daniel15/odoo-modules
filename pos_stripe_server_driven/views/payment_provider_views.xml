@@ -17,6 +17,7 @@
                     type="object"
                     class="btn-secondary"
                     string="Retire Legacy Webhook"
+                    groups="base.group_system"
                     invisible="not stripe_terminal_legacy_webhook_secret"
                     confirm="Remove the old endpoint from Stripe before clearing its signing secret. Continue?"
                 />

@@ -8,7 +8,7 @@ import werkzeug
 from werkzeug.exceptions import Forbidden
 
 from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessError, ValidationError
 
 from odoo.addons.payment import utils as payment_utils
 from odoo.addons.payment_stripe import const as stripe_const
@@ -128,8 +128,15 @@ class PaymentProvider(models.Model):
             payload["api_version"] = stripe_const.API_VERSION
         return payload
 
+    def _stripe_terminal_check_webhook_configuration_access(self):
+        if not self.env.is_system():
+            raise AccessError(
+                _("Only Settings administrators can configure Terminal webhooks.")
+            )
+
     def action_stripe_terminal_create_webhook(self):
         self.ensure_one()
+        self._stripe_terminal_check_webhook_configuration_access()
         self.env.cr.execute(
             "SELECT id FROM payment_provider WHERE id = %s FOR UPDATE", [self.id]
         )
@@ -183,6 +190,7 @@ class PaymentProvider(models.Model):
 
     def action_stripe_terminal_update_webhook(self):
         self.ensure_one()
+        self._stripe_terminal_check_webhook_configuration_access()
         if not self.stripe_terminal_webhook_endpoint_id:
             return self._stripe_terminal_webhook_notification(
                 _("Create the Stripe Terminal webhook before updating it."), "warning"

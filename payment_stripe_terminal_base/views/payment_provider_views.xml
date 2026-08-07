@@ -18,6 +18,7 @@
                         type="object"
                         class="btn-primary"
                         string="Create Terminal Webhook"
+                        groups="base.group_system"
                         invisible="stripe_terminal_webhook_endpoint_id or not stripe_secret_key"
                     />
                     <button
@@ -25,6 +26,7 @@
                         type="object"
                         class="btn-secondary"
                         string="Update Terminal Webhook"
+                        groups="base.group_system"
                         invisible="not stripe_terminal_webhook_endpoint_id or not stripe_secret_key"
                     />
                 </div>
