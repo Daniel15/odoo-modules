@@ -68,13 +68,24 @@ class PaymentProvider(models.Model):
     @api.model_create_multi
     def create(self, values_list):
         for values in values_list:
-            if values.get("code") == "stripe" and not values.get(
-                "stripe_terminal_webhook_route_token"
-            ):
+            if values.get("code") == "stripe":
                 values["stripe_terminal_webhook_route_token"] = secrets.token_urlsafe(
                     32
                 )
         return super().create(values_list)
+
+    def write(self, values):
+        route_token = values.get("stripe_terminal_webhook_route_token")
+        if "stripe_terminal_webhook_route_token" in values:
+            changed_providers = self.filtered(
+                lambda provider: provider.stripe_terminal_webhook_route_token
+                and provider.stripe_terminal_webhook_route_token != route_token
+            )
+            if changed_providers:
+                raise ValidationError(
+                    _("Stripe Terminal webhook route tokens cannot be changed.")
+                )
+        return super().write(values)
 
     def _stripe_terminal_ensure_webhook_route_token(self):
         self.ensure_one()
