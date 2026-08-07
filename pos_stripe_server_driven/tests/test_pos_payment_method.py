@@ -232,6 +232,98 @@ class TestStripePaymentFlow(TransactionCase):
             with self.assertRaises(AccessError):
                 self.payment_method.stripe_sd_create_and_process_payment(10.00)
 
+    def test_check_payment_status_returns_authorization_details(self):
+        self._skip_if_no_provider()
+        response = {
+            "id": "pi_status",
+            "status": "requires_capture",
+            "latest_charge": {
+                "id": "ch_status",
+                "payment_method_details": {
+                    "type": "card_present",
+                    "card_present": {"brand": "visa"},
+                },
+            },
+        }
+        with self._mock_stripe_request(return_value=response) as mock_req:
+            result = self.payment_method.stripe_sd_check_payment_status("pi_status")
+
+        mock_req.assert_called_once_with("payment_intents/pi_status", method="GET")
+        self.assertEqual(
+            result,
+            {
+                "status": "requires_capture",
+                "card_brand": "visa",
+                "transaction_id": "ch_status",
+            },
+        )
+
+    def test_check_payment_status_error_is_reported(self):
+        self._skip_if_no_provider()
+        with self._mock_stripe_request(
+            return_value={"error": {"message": "Status unavailable"}}
+        ):
+            with self.assertRaisesRegex(UserError, "Status unavailable"):
+                self.payment_method.stripe_sd_check_payment_status("pi_status")
+
+    def test_capture_payment_returns_card_details(self):
+        self._skip_if_no_provider()
+        response = {
+            "id": "pi_capture",
+            "status": "succeeded",
+            "latest_charge": {
+                "id": "ch_capture",
+                "payment_method_details": {
+                    "type": "card_present",
+                    "card_present": {"brand": "mastercard"},
+                },
+            },
+        }
+        with self._mock_stripe_request(return_value=response) as mock_req:
+            result = self.payment_method.stripe_sd_capture_payment("pi_capture")
+
+        mock_req.assert_called_once_with("payment_intents/pi_capture/capture")
+        self.assertEqual(
+            result,
+            {"card_brand": "mastercard", "transaction_id": "ch_capture"},
+        )
+
+    def test_capture_payment_error_is_reported(self):
+        self._skip_if_no_provider()
+        with self._mock_stripe_request(
+            return_value={"error": {"message": "Capture failed"}}
+        ):
+            with self.assertRaisesRegex(UserError, "Capture failed"):
+                self.payment_method.stripe_sd_capture_payment("pi_capture")
+
+    def test_cancel_payment_cancels_reader_and_intent(self):
+        self._skip_if_no_provider()
+        with self._mock_stripe_request(
+            side_effect=[{}, {"id": "pi_cancel", "status": "canceled"}]
+        ) as mock_req:
+            result = self.payment_method.stripe_sd_cancel_payment("pi_cancel")
+
+        self.assertTrue(result)
+        self.assertEqual(
+            [call.args[0] for call in mock_req.call_args_list],
+            [
+                "terminal/readers/tmr_test123/cancel_action",
+                "payment_intents/pi_cancel/cancel",
+            ],
+        )
+
+    def test_cancel_payment_tolerates_completed_intent(self):
+        self._skip_if_no_provider()
+        with self._mock_stripe_request(
+            side_effect=[
+                {},
+                {"error": {"code": "payment_intent_unexpected_state"}},
+            ]
+        ):
+            self.assertTrue(
+                self.payment_method.stripe_sd_cancel_payment("pi_completed")
+            )
+
 
 class TestStripeVoidAuthorizedPayment(TransactionCase):
     """Tests for stripe_sd_void_authorized_payment."""
@@ -457,6 +549,42 @@ class TestWebhookFindPosConfigs(TransactionCase):
                 "failure_message": "",
             },
         )
+
+    def test_reader_failure_notifies_every_open_pos(self):
+        self._skip_if_no_provider()
+        pos_configs = [MagicMock(), MagicMock()]
+        event = {
+            "id": "evt_reader_failure",
+            "type": "terminal.reader.action_failed",
+            "data": {
+                "object": {
+                    "id": "tmr_webhook_test",
+                    "action": {
+                        "failure_message": "Card was declined",
+                        "process_payment_intent": {
+                            "payment_intent": "pi_reader_failed"
+                        },
+                    },
+                }
+            },
+        }
+        with patch.object(
+            type(self.provider),
+            "_stripe_sd_find_pos_configs",
+            return_value=pos_configs,
+        ):
+            handled = self.provider._stripe_terminal_dispatch_webhook_event(event)
+
+        self.assertTrue(handled)
+        for pos_config in pos_configs:
+            pos_config._notify.assert_called_once_with(
+                "STRIPE_SD_PAYMENT_STATUS",
+                {
+                    "payment_intent_id": "pi_reader_failed",
+                    "status": "failed",
+                    "failure_message": "Card was declined",
+                },
+            )
 
     def test_unrelated_terminal_event_is_not_handled(self):
         self._skip_if_no_provider()

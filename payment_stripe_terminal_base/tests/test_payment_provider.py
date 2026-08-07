@@ -12,6 +12,8 @@ from odoo.exceptions import ValidationError
 from odoo.tests.common import TransactionCase
 from odoo.tools import mute_logger
 
+from odoo.addons.payment_stripe import const as stripe_const
+
 
 class StripeTerminalProviderCase(TransactionCase):
     @classmethod
@@ -39,13 +41,17 @@ class StripeTerminalProviderCase(TransactionCase):
 class TestStripeTerminalWebhookConfiguration(StripeTerminalProviderCase):
     def setUp(self):
         super().setUp()
-        self.provider.write(
-            {
-                "stripe_terminal_webhook_endpoint_id": False,
-                "stripe_terminal_webhook_route_token": False,
-                "stripe_terminal_webhook_secret": False,
-            }
+        self.env.cr.execute(
+            """
+            UPDATE payment_provider
+               SET stripe_terminal_webhook_endpoint_id = NULL,
+                   stripe_terminal_webhook_route_token = NULL,
+                   stripe_terminal_webhook_secret = NULL
+             WHERE id = %s
+            """,
+            [self.provider.id],
         )
+        self.provider.invalidate_recordset()
 
     def test_create_webhook(self):
         webhook = {
@@ -70,7 +76,7 @@ class TestStripeTerminalWebhookConfiguration(StripeTerminalProviderCase):
                 "terminal.reader.action_failed",
             ],
         )
-        self.assertTrue(payload["api_version"])
+        self.assertEqual(payload["api_version"], stripe_const.API_VERSION)
         self.assertIn(
             self.provider.stripe_terminal_webhook_route_token,
             mock_request.call_args.kwargs["idempotency_key"],
@@ -120,7 +126,15 @@ class TestStripeTerminalWebhookConfiguration(StripeTerminalProviderCase):
         self.assertFalse(self.provider.stripe_terminal_webhook_endpoint_id)
 
     def test_webhook_url_uses_provider_route_token(self):
-        self.provider.stripe_terminal_webhook_route_token = "route_existing"
+        self.env.cr.execute(
+            """
+            UPDATE payment_provider
+               SET stripe_terminal_webhook_route_token = 'route_existing'
+             WHERE id = %s
+            """,
+            [self.provider.id],
+        )
+        self.provider.invalidate_recordset(["stripe_terminal_webhook_route_token"])
         self.assertTrue(
             self.provider.stripe_terminal_webhook_url.endswith(
                 "/payment/stripe/terminal/webhook/route_existing"
@@ -131,10 +145,18 @@ class TestStripeTerminalWebhookConfiguration(StripeTerminalProviderCase):
         self.provider.write(
             {
                 "stripe_terminal_webhook_endpoint_id": "we_existing",
-                "stripe_terminal_webhook_route_token": "route_existing",
                 "stripe_terminal_webhook_secret": "whsec_existing",
             }
         )
+        self.env.cr.execute(
+            """
+            UPDATE payment_provider
+               SET stripe_terminal_webhook_route_token = 'route_existing'
+             WHERE id = %s
+            """,
+            [self.provider.id],
+        )
+        self.provider.invalidate_recordset(["stripe_terminal_webhook_route_token"])
         with (
             self._mock_stripe_request(return_value={"id": "we_existing"}) as request,
             patch.object(type(self.provider), "stripe_secret_key", new="sk_test_fake"),
@@ -144,8 +166,54 @@ class TestStripeTerminalWebhookConfiguration(StripeTerminalProviderCase):
         request.assert_called_once()
         self.assertEqual(request.call_args.args[0], "webhook_endpoints/we_existing")
         self.assertIn("route_existing", request.call_args.kwargs["payload"]["url"])
+        self.assertEqual(
+            request.call_args.kwargs["payload"]["enabled_events[]"],
+            [
+                "terminal.reader.action_succeeded",
+                "terminal.reader.action_failed",
+            ],
+        )
         self.assertNotIn("api_version", request.call_args.kwargs["payload"])
         self.assertEqual(result["params"]["type"], "info")
+
+    def test_route_token_cannot_be_changed(self):
+        self.provider._stripe_terminal_ensure_webhook_route_token()
+        with self.assertRaisesRegex(ValidationError, "cannot be changed"):
+            self.provider.stripe_terminal_webhook_route_token = "replacement"
+
+    def test_update_webhook_without_endpoint_is_ignored(self):
+        with self._mock_stripe_request() as request:
+            result = self.provider.action_stripe_terminal_update_webhook()
+        request.assert_not_called()
+        self.assertEqual(result["params"]["type"], "warning")
+
+    def test_update_webhook_without_api_key_is_rejected(self):
+        self.provider.stripe_terminal_webhook_endpoint_id = "we_existing"
+        with patch.object(
+            type(self.provider),
+            "stripe_secret_key",
+            new_callable=lambda: property(lambda _self: ""),
+        ):
+            result = self.provider.action_stripe_terminal_update_webhook()
+        self.assertEqual(result["params"]["type"], "danger")
+
+    def test_update_webhook_api_error_is_reported(self):
+        self.provider.stripe_terminal_webhook_endpoint_id = "we_existing"
+        with (
+            self._mock_stripe_request(return_value={"error": "Stripe failed"}),
+            patch.object(type(self.provider), "stripe_secret_key", new="sk_test_fake"),
+            self.assertRaisesRegex(ValidationError, "Stripe failed"),
+        ):
+            self.provider.action_stripe_terminal_update_webhook()
+
+    def test_update_webhook_requires_matching_endpoint_id(self):
+        self.provider.stripe_terminal_webhook_endpoint_id = "we_existing"
+        with (
+            self._mock_stripe_request(return_value={}),
+            patch.object(type(self.provider), "stripe_secret_key", new="sk_test_fake"),
+            self.assertRaisesRegex(ValidationError, "invalid response"),
+        ):
+            self.provider.action_stripe_terminal_update_webhook()
 
 
 class TestStripeTerminalWebhookSignature(StripeTerminalProviderCase):
@@ -188,6 +256,15 @@ class TestStripeTerminalWebhookSignature(StripeTerminalProviderCase):
     def test_missing_signature_is_rejected(self):
         with self.assertRaises(Forbidden):
             self.provider._stripe_terminal_verify_webhook_signature(self.payload, "")
+
+    @mute_logger("odoo.addons.payment_stripe_terminal_base.models.payment_provider")
+    def test_missing_webhook_secret_is_rejected(self):
+        self.provider.stripe_terminal_webhook_secret = False
+        timestamp = int(time.time())
+        with self.assertRaises(Forbidden):
+            self.provider._stripe_terminal_verify_webhook_signature(
+                self.payload, f"t={timestamp},v1={self._signature(timestamp)}"
+            )
 
     @mute_logger("odoo.addons.payment_stripe_terminal_base.models.payment_provider")
     def test_non_integer_timestamp_is_rejected(self):
@@ -281,6 +358,85 @@ class TestStripeTerminalHelpers(StripeTerminalProviderCase):
         request.assert_called_once_with("charges/ch_test", method="GET")
         self.assertEqual(details["charge_id"], "ch_test")
         self.assertEqual(details["card_brand"], "mastercard")
+
+    def test_extract_interac_present_details(self):
+        details = self.provider._stripe_terminal_extract_card_present_details(
+            {
+                "latest_charge": {
+                    "id": "ch_interac",
+                    "payment_method_details": {
+                        "type": "interac_present",
+                        "interac_present": {"brand": "interac"},
+                    },
+                }
+            }
+        )
+        self.assertEqual(details["payment_method_type"], "interac_present")
+        self.assertEqual(details["card_brand"], "interac")
+        self.assertFalse(details["reader_id"])
+        self.assertFalse(details["location_id"])
+
+    def test_extract_nullable_optional_details(self):
+        details = self.provider._stripe_terminal_extract_card_present_details(
+            {
+                "latest_charge": {
+                    "id": "ch_nullable",
+                    "payment_method_details": None,
+                }
+            }
+        )
+        self.assertEqual(details["charge_id"], "ch_nullable")
+        self.assertFalse(details["payment_method_type"])
+        self.assertFalse(details["card_brand"])
+
+    def test_extract_nullable_present_details(self):
+        details = self.provider._stripe_terminal_extract_card_present_details(
+            {
+                "latest_charge": {
+                    "id": "ch_nullable_present",
+                    "payment_method_details": {
+                        "type": "card_present",
+                        "card_present": None,
+                    },
+                }
+            }
+        )
+        self.assertEqual(details["payment_method_type"], "card_present")
+        self.assertFalse(details["card_brand"])
+        self.assertFalse(details["reader_id"])
+        self.assertFalse(details["location_id"])
+
+    def test_extract_non_present_payment_method_type(self):
+        details = self.provider._stripe_terminal_extract_card_present_details(
+            {
+                "latest_charge": {
+                    "id": "ch_card",
+                    "payment_method_details": {"type": "card"},
+                }
+            }
+        )
+        self.assertEqual(details["payment_method_type"], "card")
+        self.assertFalse(details["card_brand"])
+
+    def test_extract_malformed_charge_returns_empty_details(self):
+        details = self.provider._stripe_terminal_extract_card_present_details(
+            {"latest_charge": []}
+        )
+        self.assertEqual(
+            details,
+            {
+                "charge_id": "",
+                "payment_method_type": "",
+                "card_brand": "",
+                "reader_id": "",
+                "location_id": "",
+            },
+        )
+
+    def test_extract_missing_charge_returns_empty_details(self):
+        details = self.provider._stripe_terminal_extract_card_present_details({})
+        self.assertFalse(details["charge_id"])
+        self.assertFalse(details["payment_method_type"])
 
     def test_currency_conversion(self):
         currency = self.env.ref("base.USD")

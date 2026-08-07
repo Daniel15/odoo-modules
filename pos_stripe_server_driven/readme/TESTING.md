@@ -139,11 +139,14 @@ stripe events resend evt_xxxxxx
 
 ## 6. Automated Tests
 
-The module includes automated unit tests that mock the Stripe API. Run them with:
+The POS and shared Terminal modules include automated tests that mock the Stripe API.
+Run both suites so changes to shared webhook and extraction behavior are covered:
 
 ```bash
 docker compose run --rm odoo -- \
   -d odoo_test --test-enable --stop-after-init \
-  -i pos_stripe_server_driven \
-  --test-tags /pos_stripe_server_driven
+  -i payment_stripe_terminal_base,pos_stripe_server_driven \
+  --test-tags /payment_stripe_terminal_base,/pos_stripe_server_driven
 ```
+
+Use `-u` instead of `-i` when both modules are already installed in `odoo_test`.

@@ -22,17 +22,23 @@ class TestStripeTerminalWebhookController(HttpCase):
             return
         cls.route_token = "terminal_test_route"
         cls.webhook_secret = "whsec_controller_test"
-        cls.provider.write(
-            {
-                "stripe_terminal_webhook_route_token": cls.route_token,
-                "stripe_terminal_webhook_secret": cls.webhook_secret,
-            }
-        )
         cls.env.cr.execute(
-            "UPDATE payment_provider SET state = 'test' WHERE id = %s",
-            [cls.provider.id],
+            """
+            UPDATE payment_provider
+               SET state = 'test',
+                   stripe_terminal_webhook_route_token = %s,
+                   stripe_terminal_webhook_secret = %s
+             WHERE id = %s
+            """,
+            [cls.route_token, cls.webhook_secret, cls.provider.id],
         )
-        cls.provider.invalidate_recordset(["state"])
+        cls.provider.invalidate_recordset(
+            [
+                "state",
+                "stripe_terminal_webhook_route_token",
+                "stripe_terminal_webhook_secret",
+            ]
+        )
 
     def setUp(self):
         super().setUp()
