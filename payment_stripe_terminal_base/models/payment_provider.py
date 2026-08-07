@@ -201,12 +201,15 @@ class PaymentProvider(models.Model):
             f"webhook_endpoints/{endpoint_id}",
             payload=self._stripe_terminal_get_webhook_payload(),
         )
-        if webhook.get("error"):
+        if (
+            webhook.get("error")
+            or webhook.get("id") != self.stripe_terminal_webhook_endpoint_id
+        ):
             raise ValidationError(
                 _(
                     "Stripe returned an invalid response while updating the Terminal "
                     "webhook: %s",
-                    webhook["error"],
+                    webhook.get("error") or webhook,
                 )
             )
         return self._stripe_terminal_webhook_notification(
@@ -296,13 +299,18 @@ class PaymentProvider(models.Model):
 
     def _stripe_terminal_extract_card_present_details(self, payment_intent):
         self.ensure_one()
+        if not isinstance(payment_intent, dict):
+            payment_intent = {}
         latest_charge = payment_intent.get("latest_charge") or {}
         if isinstance(latest_charge, str):
             charge_id = latest_charge
             charge = self._stripe_terminal_retrieve_charge(charge_id)
-        else:
+        elif isinstance(latest_charge, dict):
             charge = latest_charge
             charge_id = charge.get("id", "")
+        else:
+            charge = {}
+            charge_id = ""
 
         if not isinstance(charge, dict) or charge.get("error"):
             return {
@@ -313,12 +321,16 @@ class PaymentProvider(models.Model):
                 "location_id": "",
             }
 
-        payment_method_details = charge.get("payment_method_details", {})
+        payment_method_details = charge.get("payment_method_details") or {}
+        if not isinstance(payment_method_details, dict):
+            payment_method_details = {}
         payment_method_type = payment_method_details.get("type", "")
         if payment_method_type not in ("card_present", "interac_present"):
             present_details = {}
         else:
-            present_details = payment_method_details.get(payment_method_type, {})
+            present_details = payment_method_details.get(payment_method_type) or {}
+            if not isinstance(present_details, dict):
+                present_details = {}
         return {
             "charge_id": charge_id,
             "payment_method_type": payment_method_type,
