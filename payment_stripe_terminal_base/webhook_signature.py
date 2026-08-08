@@ -36,6 +36,9 @@ def verify_webhook_signature(
 
     if not timestamp:
         raise WebhookSignatureError("missing timestamp")
+    # Bound attacker-controlled integer parsing; 20 characters cover int64 timestamps.
+    if len(timestamp) > 20:
+        raise WebhookSignatureError("invalid timestamp")
     try:
         event_timestamp = int(timestamp)
     except ValueError:

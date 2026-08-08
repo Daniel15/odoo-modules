@@ -91,3 +91,13 @@ class TestWebhookSignature(BaseCase):
                 self.tolerance,
                 current_timestamp=self.timestamp + self.tolerance + 1,
             )
+
+    def test_oversized_timestamp_is_rejected_before_parsing(self):
+        with self.assertRaisesRegex(WebhookSignatureError, "invalid timestamp"):
+            verify_webhook_signature(
+                self.payload,
+                f"t={'1' * 21},v1=invalid",
+                self.secret,
+                self.tolerance,
+                current_timestamp=self.timestamp,
+            )
