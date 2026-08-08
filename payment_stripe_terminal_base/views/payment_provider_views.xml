@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="payment_provider_view_form_stripe_terminal" model="ir.ui.view">
+        <field name="name">payment.provider.form.stripe.terminal</field>
+        <field name="model">payment.provider</field>
+        <field name="inherit_id" ref="payment_stripe.payment_provider_form" />
+        <field name="arch" type="xml">
+            <xpath
+                expr="//group[@name='stripe_credentials']//label[@for='stripe_webhook_secret']"
+                position="before"
+            >
+                <field name="stripe_terminal_webhook_route_token" invisible="True" />
+                <label for="stripe_terminal_webhook_secret" />
+                <div class="o_row" col="2">
+                    <field name="stripe_terminal_webhook_secret" password="True" />
+                    <button
+                        name="action_stripe_terminal_create_webhook"
+                        type="object"
+                        class="btn-primary"
+                        string="Create Terminal Webhook"
+                        groups="base.group_system"
+                        invisible="stripe_terminal_webhook_endpoint_id or not stripe_secret_key"
+                    />
+                    <button
+                        name="action_stripe_terminal_update_webhook"
+                        type="object"
+                        class="btn-secondary"
+                        string="Update Terminal Webhook"
+                        groups="base.group_system"
+                        invisible="not stripe_terminal_webhook_endpoint_id or not stripe_secret_key"
+                    />
+                </div>
+                <field name="stripe_terminal_webhook_url" readonly="True" />
+                <field
+                    name="stripe_terminal_webhook_endpoint_id"
+                    invisible="not stripe_terminal_webhook_endpoint_id"
+                />
+            </xpath>
+        </field>
+    </record>
+</odoo>

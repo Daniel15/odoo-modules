@@ -96,10 +96,6 @@ class PosPaymentMethod(models.Model):
             )
         return stripe_payment_provider
 
-    def _stripe_calculate_amount(self, amount):
-        currency = self.journal_id.currency_id or self.company_id.currency_id
-        return int(round(amount / currency.rounding))
-
     def action_stripe_sd_provider_settings(self):
         self.ensure_one()
         res_id = self._get_stripe_payment_provider().id
@@ -130,7 +126,10 @@ class PosPaymentMethod(models.Model):
         # Create PaymentIntent
         params = [
             ("currency", currency.name.lower()),
-            ("amount", self._stripe_calculate_amount(amount)),
+            (
+                "amount",
+                provider._stripe_terminal_to_minor_currency_units(amount, currency),
+            ),
             ("payment_method_types[]", "card_present"),
             ("capture_method", "manual"),
         ]
@@ -187,25 +186,15 @@ class PosPaymentMethod(models.Model):
         :param result: A Stripe PaymentIntent response dict
         :return: dict with card_brand and transaction_id
         """
-        card_brand = ""
-        transaction_id = ""
-        charges = result.get("latest_charge")
-        if isinstance(charges, str):
-            charge_result = (
-                self.sudo()
-                ._get_stripe_payment_provider()
-                ._stripe_make_request(
-                    f"charges/{werkzeug.urls.url_quote(charges)}",
-                    method="GET",
-                )
-            )
-            if not charge_result.get("error"):
-                card_details = charge_result.get("payment_method_details", {}).get(
-                    "card_present", {}
-                )
-                card_brand = card_details.get("brand", "")
-                transaction_id = charge_result.get("id", "")
-        return {"card_brand": card_brand, "transaction_id": transaction_id}
+        details = (
+            self.sudo()
+            ._get_stripe_payment_provider()
+            ._stripe_terminal_extract_card_present_details(result)
+        )
+        return {
+            "card_brand": details["card_brand"],
+            "transaction_id": details["charge_id"],
+        }
 
     def stripe_sd_check_payment_status(self, payment_intent_id):
         self.ensure_one()

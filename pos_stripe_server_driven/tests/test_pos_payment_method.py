@@ -1,7 +1,7 @@
 # Copyright 2026 Daniel Lo Nigro
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from odoo.exceptions import AccessError, UserError
 from odoo.tests.common import TransactionCase
@@ -100,104 +100,6 @@ class TestPosPaymentMethodStripeReaders(TransactionCase):
         with self._mock_stripe_request(return_value=mock_response):
             result = self.payment_method_model._get_stripe_readers()
         self.assertEqual(result, [])
-
-
-class TestProviderCreateWebhook(TransactionCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.provider = cls.env["payment.provider"].search(
-            [("code", "=", "stripe"), ("company_id", "=", cls.env.company.id)],
-            limit=1,
-        )
-
-    def _skip_if_no_provider(self):
-        if not self.provider:
-            self.skipTest("No Stripe provider configured")
-
-    def _mock_stripe_request(self, return_value=None):
-        return patch.object(
-            type(self.provider),
-            "_stripe_make_request",
-            return_value=return_value,
-        )
-
-    def test_create_webhook_success(self):
-        """Successfully creates a webhook and saves the secret on provider."""
-        self._skip_if_no_provider()
-        self.provider.stripe_terminal_webhook_secret = False
-        mock_response = {"secret": "whsec_test123"}
-        with (
-            self._mock_stripe_request(return_value=mock_response) as mock_req,
-            patch.object(type(self.provider), "stripe_secret_key", new="sk_test_fake"),
-        ):
-            result = self.provider.action_stripe_sd_create_webhook()
-            mock_req.assert_called_once()
-            call_args = mock_req.call_args
-            self.assertEqual(call_args[0][0], "webhook_endpoints")
-            payload = call_args[1]["payload"]
-            self.assertIn("/pos_stripe_server_driven/webhook", payload["url"])
-            self.assertEqual(
-                payload["enabled_events[]"],
-                [
-                    "terminal.reader.action_succeeded",
-                    "terminal.reader.action_failed",
-                ],
-            )
-        self.assertEqual(self.provider.stripe_terminal_webhook_secret, "whsec_test123")
-        self.assertEqual(result["tag"], "display_notification")
-        self.assertEqual(result["params"]["type"], "info")
-
-    def test_create_webhook_already_set(self):
-        """Returns warning when webhook secret is already configured."""
-        self._skip_if_no_provider()
-        self.provider.stripe_terminal_webhook_secret = "whsec_existing"
-        with self._mock_stripe_request() as mock_req:
-            result = self.provider.action_stripe_sd_create_webhook()
-            mock_req.assert_not_called()
-        self.assertEqual(result["params"]["type"], "warning")
-        # Secret unchanged
-        self.assertEqual(self.provider.stripe_terminal_webhook_secret, "whsec_existing")
-
-    @mute_logger("odoo.addons.pos_stripe_server_driven.models.payment_provider")
-    def test_create_webhook_stripe_error(self):
-        """Returns error when Stripe returns an error creating the webhook."""
-        self._skip_if_no_provider()
-        self.provider.stripe_terminal_webhook_secret = False
-        mock_response = {"error": {"message": "Invalid API key"}}
-        with (
-            self._mock_stripe_request(return_value=mock_response),
-            patch.object(type(self.provider), "stripe_secret_key", new="sk_test_fake"),
-        ):
-            result = self.provider.action_stripe_sd_create_webhook()
-        self.assertEqual(result["params"]["type"], "danger")
-        self.assertFalse(self.provider.stripe_terminal_webhook_secret)
-
-    @mute_logger("odoo.addons.pos_stripe_server_driven.models.payment_provider")
-    def test_create_webhook_missing_secret_in_response(self):
-        """Returns error when Stripe response has no secret."""
-        self._skip_if_no_provider()
-        self.provider.stripe_terminal_webhook_secret = False
-        mock_response = {"id": "we_123"}  # No "secret" key
-        with (
-            self._mock_stripe_request(return_value=mock_response),
-            patch.object(type(self.provider), "stripe_secret_key", new="sk_test_fake"),
-        ):
-            result = self.provider.action_stripe_sd_create_webhook()
-        self.assertEqual(result["params"]["type"], "danger")
-        self.assertFalse(self.provider.stripe_terminal_webhook_secret)
-
-    def test_create_webhook_no_secret_key(self):
-        """Returns error when Stripe secret key is not set on the provider."""
-        self._skip_if_no_provider()
-        self.provider.stripe_terminal_webhook_secret = False
-        with patch.object(
-            type(self.provider),
-            "stripe_secret_key",
-            new_callable=lambda: property(lambda _self: ""),
-        ):
-            result = self.provider.action_stripe_sd_create_webhook()
-        self.assertEqual(result["params"]["type"], "danger")
 
 
 class TestStripePaymentFlow(TransactionCase):
@@ -329,6 +231,98 @@ class TestStripePaymentFlow(TransactionCase):
         with patch.object(type(self.env.user), "has_group", return_value=False):
             with self.assertRaises(AccessError):
                 self.payment_method.stripe_sd_create_and_process_payment(10.00)
+
+    def test_check_payment_status_returns_authorization_details(self):
+        self._skip_if_no_provider()
+        response = {
+            "id": "pi_status",
+            "status": "requires_capture",
+            "latest_charge": {
+                "id": "ch_status",
+                "payment_method_details": {
+                    "type": "card_present",
+                    "card_present": {"brand": "visa"},
+                },
+            },
+        }
+        with self._mock_stripe_request(return_value=response) as mock_req:
+            result = self.payment_method.stripe_sd_check_payment_status("pi_status")
+
+        mock_req.assert_called_once_with("payment_intents/pi_status", method="GET")
+        self.assertEqual(
+            result,
+            {
+                "status": "requires_capture",
+                "card_brand": "visa",
+                "transaction_id": "ch_status",
+            },
+        )
+
+    def test_check_payment_status_error_is_reported(self):
+        self._skip_if_no_provider()
+        with self._mock_stripe_request(
+            return_value={"error": {"message": "Status unavailable"}}
+        ):
+            with self.assertRaisesRegex(UserError, "Status unavailable"):
+                self.payment_method.stripe_sd_check_payment_status("pi_status")
+
+    def test_capture_payment_returns_card_details(self):
+        self._skip_if_no_provider()
+        response = {
+            "id": "pi_capture",
+            "status": "succeeded",
+            "latest_charge": {
+                "id": "ch_capture",
+                "payment_method_details": {
+                    "type": "card_present",
+                    "card_present": {"brand": "mastercard"},
+                },
+            },
+        }
+        with self._mock_stripe_request(return_value=response) as mock_req:
+            result = self.payment_method.stripe_sd_capture_payment("pi_capture")
+
+        mock_req.assert_called_once_with("payment_intents/pi_capture/capture")
+        self.assertEqual(
+            result,
+            {"card_brand": "mastercard", "transaction_id": "ch_capture"},
+        )
+
+    def test_capture_payment_error_is_reported(self):
+        self._skip_if_no_provider()
+        with self._mock_stripe_request(
+            return_value={"error": {"message": "Capture failed"}}
+        ):
+            with self.assertRaisesRegex(UserError, "Capture failed"):
+                self.payment_method.stripe_sd_capture_payment("pi_capture")
+
+    def test_cancel_payment_cancels_reader_and_intent(self):
+        self._skip_if_no_provider()
+        with self._mock_stripe_request(
+            side_effect=[{}, {"id": "pi_cancel", "status": "canceled"}]
+        ) as mock_req:
+            result = self.payment_method.stripe_sd_cancel_payment("pi_cancel")
+
+        self.assertTrue(result)
+        self.assertEqual(
+            [call.args[0] for call in mock_req.call_args_list],
+            [
+                "terminal/readers/tmr_test123/cancel_action",
+                "payment_intents/pi_cancel/cancel",
+            ],
+        )
+
+    def test_cancel_payment_tolerates_completed_intent(self):
+        self._skip_if_no_provider()
+        with self._mock_stripe_request(
+            side_effect=[
+                {},
+                {"error": {"code": "payment_intent_unexpected_state"}},
+            ]
+        ):
+            self.assertTrue(
+                self.payment_method.stripe_sd_cancel_payment("pi_completed")
+            )
 
 
 class TestStripeVoidAuthorizedPayment(TransactionCase):
@@ -475,19 +469,7 @@ class TestWebhookFindPosConfigs(TransactionCase):
             self.skipTest("No Stripe provider configured")
 
     def _call_find_pos_configs(self, payment_method):
-        """Call _find_pos_configs with request.env mocked to self.env."""
-        from unittest.mock import MagicMock
-
-        from ..controllers.main import PosStripeServerDrivenController
-
-        controller = PosStripeServerDrivenController()
-        mock_request = MagicMock()
-        mock_request.env = self.env
-        with patch(
-            "odoo.addons.pos_stripe_server_driven.controllers.main.request",
-            mock_request,
-        ):
-            return controller._find_pos_configs(payment_method)
+        return self.provider._stripe_sd_find_pos_configs(payment_method)
 
     def _open_session(self, config):
         """Open a POS session and transition it to 'opened' state."""
@@ -536,75 +518,105 @@ class TestWebhookFindPosConfigs(TransactionCase):
         configs = self._call_find_pos_configs(self.payment_method)
         self.assertFalse(configs)
 
+    def test_reader_event_dispatches_pos_notification(self):
+        self._skip_if_no_provider()
+        pos_config = MagicMock()
+        event = {
+            "id": "evt_reader_success",
+            "type": "terminal.reader.action_succeeded",
+            "data": {
+                "object": {
+                    "id": "tmr_webhook_test",
+                    "action": {
+                        "process_payment_intent": {"payment_intent": "pi_reader_test"}
+                    },
+                }
+            },
+        }
+        with patch.object(
+            type(self.provider),
+            "_stripe_sd_find_pos_configs",
+            return_value=[pos_config],
+        ):
+            handled = self.provider._stripe_terminal_dispatch_webhook_event(event)
 
-class TestWebhookSignatureVerification(TransactionCase):
-    """Tests for _verify_webhook_signature edge cases."""
-
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.provider = cls.env["payment.provider"].search(
-            [("code", "=", "stripe"), ("company_id", "=", cls.env.company.id)],
-            limit=1,
-        )
-        if not cls.provider:
-            return
-
-        cls.provider.stripe_terminal_webhook_secret = "whsec_test_secret"
-
-        journal = cls.env["account.journal"].search(
-            [("type", "=", "bank"), ("company_id", "=", cls.env.company.id)],
-            limit=1,
-        )
-        cls.payment_method = cls.env["pos.payment.method"].create(
+        self.assertTrue(handled)
+        pos_config._notify.assert_called_once_with(
+            "STRIPE_SD_PAYMENT_STATUS",
             {
-                "name": "Stripe Terminal Sig Test",
-                "journal_id": journal.id if journal else False,
-                "use_payment_terminal": "stripe_server_driven",
+                "payment_intent_id": "pi_reader_test",
+                "status": "succeeded",
+                "failure_message": "",
+            },
+        )
+
+    def test_reader_failure_notifies_every_open_pos(self):
+        self._skip_if_no_provider()
+        pos_configs = [MagicMock(), MagicMock()]
+        event = {
+            "id": "evt_reader_failure",
+            "type": "terminal.reader.action_failed",
+            "data": {
+                "object": {
+                    "id": "tmr_webhook_test",
+                    "action": {
+                        "failure_message": "Card was declined",
+                        "process_payment_intent": {
+                            "payment_intent": "pi_reader_failed"
+                        },
+                    },
+                }
+            },
+        }
+        with patch.object(
+            type(self.provider),
+            "_stripe_sd_find_pos_configs",
+            return_value=pos_configs,
+        ):
+            handled = self.provider._stripe_terminal_dispatch_webhook_event(event)
+
+        self.assertTrue(handled)
+        for pos_config in pos_configs:
+            pos_config._notify.assert_called_once_with(
+                "STRIPE_SD_PAYMENT_STATUS",
+                {
+                    "payment_intent_id": "pi_reader_failed",
+                    "status": "failed",
+                    "failure_message": "Card was declined",
+                },
+            )
+
+    def test_unrelated_terminal_event_is_not_handled(self):
+        self._skip_if_no_provider()
+        self.assertFalse(
+            self.provider._stripe_terminal_dispatch_webhook_event(
+                {"id": "evt_other", "type": "unhandled.event"}
+            )
+        )
+
+    def test_duplicate_legacy_secrets_resolve_provider_from_reader_company(self):
+        self._skip_if_no_provider()
+        other_company = self.env["res.company"].create({"name": "Other Company"})
+        other_provider = self.provider.copy(
+            {
+                "name": "Other Company Stripe",
+                "company_id": other_company.id,
+                "journal_id": False,
+                "state": "disabled",
             }
         )
-
-    def _skip_if_no_provider(self):
-        if not self.provider:
-            self.skipTest("No Stripe provider configured")
-
-    def _call_verify(self, signature_header, payload=b"{}"):
-        from unittest.mock import MagicMock
-
-        from werkzeug.exceptions import Forbidden
-
-        from ..controllers.main import PosStripeServerDrivenController
-
-        controller = PosStripeServerDrivenController()
-        mock_request = MagicMock()
-        mock_request.env = self.env
-        mock_request.httprequest.data = payload
-        mock_request.httprequest.headers = {"Stripe-Signature": signature_header}
-        with patch(
-            "odoo.addons.pos_stripe_server_driven.controllers.main.request",
-            mock_request,
+        providers = self.provider | other_provider
+        payment_method = MagicMock(company_id=other_company)
+        event = {
+            "type": "terminal.reader.action_succeeded",
+            "data": {"object": {"id": "tmr_other_company"}},
+        }
+        with patch.object(
+            type(self.env["pos.payment.method"]),
+            "search",
+            return_value=payment_method,
         ):
-            with self.assertRaises(Forbidden):
-                controller._verify_webhook_signature(self.payment_method)
-
-    @mute_logger("odoo.addons.pos_stripe_server_driven.controllers.main")
-    def test_non_integer_timestamp_raises_forbidden(self):
-        """Non-integer timestamp in Stripe-Signature raises Forbidden."""
-        self._skip_if_no_provider()
-        self._call_verify("t=not_a_number,v1=abc123")
-
-    @mute_logger("odoo.addons.pos_stripe_server_driven.controllers.main")
-    def test_future_timestamp_raises_forbidden(self):
-        """Timestamp far in the future raises Forbidden."""
-        self._skip_if_no_provider()
-        # Use a timestamp 1 hour in the future (well beyond the 10-minute tolerance)
-        import time
-
-        future_ts = int(time.time()) + 3600
-        self._call_verify(f"t={future_ts},v1=abc123")
-
-    @mute_logger("odoo.addons.pos_stripe_server_driven.controllers.main")
-    def test_missing_timestamp_raises_forbidden(self):
-        """Missing timestamp in Stripe-Signature raises Forbidden."""
-        self._skip_if_no_provider()
-        self._call_verify("v1=abc123")
+            resolved_provider = providers._stripe_sd_resolve_legacy_webhook_provider(
+                event
+            )
+        self.assertEqual(resolved_provider, other_provider)

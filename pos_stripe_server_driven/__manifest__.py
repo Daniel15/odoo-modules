@@ -4,9 +4,9 @@
     "name": "POS Stripe (Server-driven)",
     "summary": "Integrate your POS with a Stripe terminal via"
     " server-driven integration",
-    "version": "18.0.1.0.0",
+    "version": "18.0.2.0.0",
     "category": "Sales/Point of Sale",
-    "depends": ["point_of_sale", "payment_stripe"],
+    "depends": ["point_of_sale", "payment_stripe_terminal_base"],
     "data": [
         "views/payment_provider_views.xml",
         "views/pos_payment_method_views.xml",
