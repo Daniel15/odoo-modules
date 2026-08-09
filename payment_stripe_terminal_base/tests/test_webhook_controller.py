@@ -1,13 +1,12 @@
 # Copyright 2026 Daniel Lo Nigro
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 
-import hashlib
-import hmac
 import json
-import time
 
 from odoo.tests import HttpCase, tagged
 from odoo.tools import mute_logger
+
+from ..webhook_signature import build_webhook_signature_header
 
 
 @tagged("post_install", "-at_install")
@@ -46,15 +45,6 @@ class TestStripeTerminalWebhookController(HttpCase):
         if not self.provider:
             self.skipTest("No Stripe provider configured")
 
-    def _signature_header(self, payload, secret=None):
-        timestamp = int(time.time())
-        signature = hmac.new(
-            (secret or self.webhook_secret).encode(),
-            str(timestamp).encode() + b"." + payload,
-            hashlib.sha256,
-        ).hexdigest()
-        return f"t={timestamp},v1={signature}"
-
     def _post_webhook(self, payload, signature_header=None, route_token=None):
         return self.url_open(
             "/payment/stripe/terminal/webhook/" + (route_token or self.route_token),
@@ -74,7 +64,10 @@ class TestStripeTerminalWebhookController(HttpCase):
                 "livemode": False,
             }
         ).encode()
-        response = self._post_webhook(payload, self._signature_header(payload))
+        response = self._post_webhook(
+            payload,
+            build_webhook_signature_header(payload, self.webhook_secret),
+        )
         self.assertEqual(response.status_code, 200)
 
     @mute_logger("odoo.addons.payment_stripe_terminal_base.models.payment_provider")
@@ -84,7 +77,10 @@ class TestStripeTerminalWebhookController(HttpCase):
 
     def test_signed_invalid_json_is_rejected(self):
         payload = b"not-json"
-        response = self._post_webhook(payload, self._signature_header(payload))
+        response = self._post_webhook(
+            payload,
+            build_webhook_signature_header(payload, self.webhook_secret),
+        )
         self.assertEqual(response.status_code, 400)
 
     @mute_logger("odoo.addons.payment_stripe_terminal_base.controllers.main")
@@ -92,7 +88,7 @@ class TestStripeTerminalWebhookController(HttpCase):
         payload = b"{}"
         response = self._post_webhook(
             payload,
-            self._signature_header(payload),
+            build_webhook_signature_header(payload, self.webhook_secret),
             route_token="unknown_terminal_route",
         )
         self.assertEqual(response.status_code, 403)
