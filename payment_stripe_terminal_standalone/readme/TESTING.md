@@ -49,7 +49,7 @@ In a dedicated terminal, start the Stripe CLI listener:
 
 ```bash
 stripe listen \
-  --events payment_intent.succeeded,terminal.reader.action_succeeded,terminal.reader.action_failed \
+  --events payment_intent.succeeded \
   --forward-to <stripe-terminal-webhook-url>
 ```
 
@@ -59,10 +59,9 @@ running and use that secret in the next step.
 ## 3. Configure Odoo
 
 1. Open the test Stripe provider in **Invoicing > Configuration > Payment Providers**.
-2. Paste the `whsec_...` value into **Terminal Webhook Secret**.
-3. Leave **Stripe Terminal Webhook Endpoint ID** empty. Stripe CLI forwarding does not
-   create an endpoint.
-4. Confirm that the provider is in **Test Mode**.
+2. Paste the `whsec_...` value into **Stripe Terminal Webhook Secret**.
+3. Do not click **Create Terminal Webhook**. Stripe CLI forwarding does not create or require an endpoint.
+1. Confirm that the provider is in **Test Mode**.
 
 When testing with a real Stripe webhook endpoint instead of `stripe listen`, click
 **Update Terminal Webhook** after installing this module. Its enabled events must include
