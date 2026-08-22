@@ -60,8 +60,9 @@ running and use that secret in the next step.
 
 1. Open the test Stripe provider in **Invoicing > Configuration > Payment Providers**.
 2. Paste the `whsec_...` value into **Stripe Terminal Webhook Secret**.
-3. Do not click **Create Terminal Webhook**. Stripe CLI forwarding does not create or require an endpoint.
-1. Confirm that the provider is in **Test Mode**.
+3. Do not click **Create Terminal Webhook**. Stripe CLI forwarding does not create or
+   require an endpoint.
+4. Confirm that the provider is in **Test Mode**.
 
 When testing with a real Stripe webhook endpoint instead of `stripe listen`, click
 **Update Terminal Webhook** after installing this module. Its enabled events must include
@@ -104,15 +105,21 @@ Logged Stripe Terminal standalone candidate pi_xxx with invoice note INV/2026/00
 
 ## 5. Verify the Audit Record
 
-Open an Odoo shell:
+Open an Odoo shell for the same database that received the webhook. For example, the
+database name in a log line beginning with `WARNING test1` is `test1`:
 
 ```bash
-docker compose run --rm odoo shell --db-filter="^odoo_test$" -d odoo_test
+DB_NAME=test1
+docker compose run --rm odoo -- shell --db-filter="^${DB_NAME}$" -d "${DB_NAME}"
 ```
 
-Query the PaymentIntent ID returned in step 4:
+Confirm that the module is installed in that database, then query the PaymentIntent ID
+returned in step 4:
 
 ```python
+env["ir.module.module"].search(
+    [("name", "=", "payment_stripe_terminal_standalone")]
+).state
 audit = env["stripe.terminal.standalone.payment"].search(
     [("payment_intent_id", "=", "pi_xxx")]
 )
