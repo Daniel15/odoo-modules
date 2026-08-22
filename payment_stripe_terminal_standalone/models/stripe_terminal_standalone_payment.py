@@ -103,7 +103,7 @@ class StripeTerminalStandalonePayment(models.Model):
         readonly=True,
         help=(
             "Trimmed invoice reference copied from the PaymentIntent metadata key "
-            "x_terminal_standalone_note. See ."
+            "x_terminal_standalone_note. See "
             "https://docs.stripe.com/terminal/payments/standalone-mode/get-started#payment-reconciliation"
         ),
     )
@@ -231,7 +231,7 @@ class StripeTerminalStandalonePayment(models.Model):
         values = self._get_event_values(provider, event, payment_intent, note)
         try:
             with self.env.cr.savepoint():
-                return self.create(values)
+                return self.create(values), True
         except UniqueViolation:
             existing = self.search(
                 [
@@ -250,7 +250,7 @@ class StripeTerminalStandalonePayment(models.Model):
                 event_id,
                 payment_intent_id,
             )
-            return existing
+            return existing, False
 
     @api.model
     def _get_event_values(self, provider, event, payment_intent, note):

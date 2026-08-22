@@ -132,14 +132,19 @@ class TestStripeTerminalStandalonePayment(TransactionCase):
     @mute_logger("odoo.sql_db")
     def test_same_event_duplicate_is_idempotent(self):
         event = self._event()
-        self.provider._stripe_terminal_dispatch_webhook_event(event)
-        self.provider._stripe_terminal_dispatch_webhook_event(event)
+        with patch(
+            "odoo.addons.payment_stripe_terminal_standalone.models.payment_provider."
+            "_logger.info"
+        ) as log_info:
+            self.provider._stripe_terminal_dispatch_webhook_event(event)
+            self.provider._stripe_terminal_dispatch_webhook_event(event)
         self.assertEqual(
             self.env["stripe.terminal.standalone.payment"].search_count(
                 [("payment_intent_id", "=", "pi_standalone")]
             ),
             1,
         )
+        self.assertEqual(log_info.call_count, 1)
 
     @mute_logger("odoo.sql_db")
     def test_same_payment_intent_in_different_event_is_idempotent(self):
