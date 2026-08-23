@@ -1,0 +1,348 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* payment_stripe_terminal_standalone
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 18.0\n"
+"Report-Msgid-Bugs-To: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__amount
+msgid "Amount"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__amount_minor
+msgid "Amount Minor"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__amount
+msgid "Amount received by Stripe expressed in major currency units."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__amount_minor
+msgid ""
+"Amount received by Stripe in the currency's minor unit, such as cents. For "
+"example, 1250 USD means USD 12.50. See https://docs.stripe.com/currencies."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__charge_id
+msgid "Charge"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__company_id
+msgid "Company"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__event_summary
+msgid ""
+"Concise, non-sensitive description of the verified Stripe event. The "
+"complete webhook payload is deliberately not stored."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__create_uid
+msgid "Created by"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__create_date
+msgid "Created on"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__currency_id
+msgid "Currency"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__state
+msgid "Current Odoo processing state of this audit record."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__display_name
+msgid "Display Name"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__event_id
+msgid "Event"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__event_api_version
+msgid "Event Api Version"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__event_summary
+msgid "Event Summary"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields.selection,name:payment_stripe_terminal_standalone.selection__stripe_terminal_standalone_payment__state__failed
+msgid "Failed"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__failure_code
+msgid "Failure Code"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__failure_reason
+msgid "Failure Reason"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__failure_reason
+msgid "Human-readable details about a later processing or validation failure."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__id
+msgid "ID"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__charge_id
+msgid ""
+"ID of the Stripe Charge created by the PaymentIntent (ch_...). This is a "
+"Stripe payment-attempt record, not an Odoo payment transaction. See "
+"https://docs.stripe.com/api/charges/object."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__event_id
+msgid ""
+"ID of the Stripe Event that delivered this webhook (evt_...). See "
+"https://docs.stripe.com/api/events/object."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__payment_intent_id
+msgid ""
+"ID of the Stripe PaymentIntent representing the customer's payment (pi_...)."
+" See https://docs.stripe.com/api/payment_intents/object."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__location_id
+msgid ""
+"ID of the Stripe Terminal Location assigned to the reader (tml_...), when "
+"included in the event. See "
+"https://docs.stripe.com/api/terminal/locations/object."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__reader_id
+msgid ""
+"ID of the Stripe Terminal Reader that collected the payment (tmr_...), when "
+"included in the event. See "
+"https://docs.stripe.com/api/terminal/readers/object."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__internal_note
+msgid "Internal Note"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__invoice_id
+msgid "Invoice"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__write_uid
+msgid "Last Updated by"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__write_date
+msgid "Last Updated on"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__livemode
+msgid "Livemode"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__location_id
+msgid "Location"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields.selection,name:payment_stripe_terminal_standalone.selection__stripe_terminal_standalone_payment__state__logged
+msgid "Logged"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields.selection,name:payment_stripe_terminal_standalone.selection__stripe_terminal_standalone_payment__state__matched
+msgid "Matched"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__provider_id
+msgid ""
+"Odoo Stripe payment provider whose provider-bound webhook verified and "
+"received the event."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__company_id
+msgid ""
+"Odoo company owning the Stripe provider. This stored field enforces multi-"
+"company audit access."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__currency_id
+msgid ""
+"Odoo currency matching the lowercase currency code in the Stripe "
+"PaymentIntent. See https://docs.stripe.com/currencies."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__invoice_id
+msgid "Odoo customer invoice matched from the internal note."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__payment_transaction_id
+msgid ""
+"Odoo payment.transaction created to process this payment through Odoo's "
+"payment and accounting lifecycle. Unlike charge_id, this references an Odoo "
+"record."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__payment_intent_id
+msgid "Payment Intent"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model,name:payment_stripe_terminal_standalone.model_payment_provider
+msgid "Payment Provider"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__payment_transaction_id
+msgid "Payment Transaction"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields.selection,name:payment_stripe_terminal_standalone.selection__stripe_terminal_standalone_payment__state__processed
+msgid "Processed"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__processed_at
+msgid "Processed At"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields.selection,name:payment_stripe_terminal_standalone.selection__stripe_terminal_standalone_payment__state__processing
+msgid "Processing"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__processing_started_at
+msgid "Processing Started At"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__provider_id
+msgid "Provider"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__reader_id
+msgid "Reader"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields.selection,name:payment_stripe_terminal_standalone.selection__stripe_terminal_standalone_payment__state__received
+msgid "Received"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields.selection,name:payment_stripe_terminal_standalone.selection__stripe_terminal_standalone_payment__state__review_required
+msgid "Review Required"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__failure_code
+msgid ""
+"Stable integration-defined code identifying why later automatic processing "
+"failed or requires review."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,field_description:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__state
+msgid "State"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__event_api_version
+msgid ""
+"Stripe API version used to serialize this event. Retaining it makes payload-"
+"shape changes auditable. See "
+"https://docs.stripe.com/api/events/object#event_object-api_version."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model,name:payment_stripe_terminal_standalone.model_stripe_terminal_standalone_payment
+msgid "Stripe Terminal Standalone Payment Audit"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.constraint,message:payment_stripe_terminal_standalone.constraint_stripe_terminal_standalone_payment_provider_intent_unique
+msgid "This Stripe PaymentIntent has already been recorded for this provider."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.constraint,message:payment_stripe_terminal_standalone.constraint_stripe_terminal_standalone_payment_provider_event_unique
+msgid "This Stripe event has already been recorded for this provider."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__processed_at
+msgid "Time at which Odoo successfully processed the standalone payment."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__processing_started_at
+msgid ""
+"Time at which processing began. Cleared after processing or when review is "
+"required."
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__internal_note
+msgid ""
+"Trimmed invoice reference copied from the PaymentIntent metadata key "
+"x_terminal_standalone_note. See "
+"https://docs.stripe.com/terminal/payments/standalone-mode/get-"
+"started#payment-reconciliation"
+msgstr ""
+
+#. module: payment_stripe_terminal_standalone
+#: model:ir.model.fields,help:payment_stripe_terminal_standalone.field_stripe_terminal_standalone_payment__livemode
+msgid ""
+"Whether Stripe created the event in live mode. False identifies a test mode "
+"event. See https://docs.stripe.com/api/events/object#event_object-livemode."
+msgstr ""
