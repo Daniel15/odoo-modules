@@ -40,6 +40,34 @@ class TestStripeTerminalStandaloneProcessing(StandaloneProcessingCommon):
             self.invoice._get_invoice_in_payment_state(),
         )
 
+    def test_success_matches_custom_invoice_number(self):
+        self.invoice = self._create_invoice_one_line(
+            price_unit=12.5,
+            tax_ids=self.env["account.tax"],
+            move_name="INV-1",
+            post=True,
+        )
+        self.audit = self._receive_audit(
+            self.invoice.name,
+            event_id="evt_custom_invoice_number",
+            payment_intent_id="pi_custom_invoice_number",
+        )
+
+        self._process_payment()
+
+        self.audit.invalidate_recordset()
+        self.invoice.invalidate_recordset(["amount_residual", "payment_state"])
+        self.assertEqual(self.invoice.name, "INV-1")
+        self.assertEqual(self.audit.internal_note, "INV-1")
+        self.assertEqual(self.audit.state, "processed")
+        self.assertEqual(self.audit.invoice_id, self.invoice)
+        self.assertEqual(self.audit.payment_transaction_id.invoice_ids, self.invoice)
+        self.assertTrue(self.invoice.currency_id.is_zero(self.invoice.amount_residual))
+        self.assertEqual(
+            self.invoice.payment_state,
+            self.invoice._get_invoice_in_payment_state(),
+        )
+
     def test_wrong_amount_requires_review_without_accounting(self):
         self._process_payment(payment_intent=self._payment_intent(amount_received=1200))
 
