@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+    <record id="reconcile_model_stripe_payment_intent" model="account.reconcile.model">
+        <field name="name">Stripe PaymentIntent Match</field>
+        <field name="sequence">0</field>
+        <field name="rule_type">invoice_matching</field>
+        <field name="auto_reconcile" eval="True" />
+        <field name="unique_matching" eval="True" />
+        <field name="match_nature">amount_received</field>
+        <field name="match_label">match_regex</field>
+        <field
+            name="match_label_param"
+        >^stripe\b(?=.*\bpi_[0-9a-z]+\b)(?=.*\b(?:charge|payment)\b).*$</field>
+        <field name="match_same_currency" eval="True" />
+        <field name="match_partner" eval="False" />
+        <field name="match_text_location_label" eval="True" />
+        <field name="match_text_location_note" eval="False" />
+        <field name="match_text_location_reference" eval="False" />
+        <field name="allow_payment_tolerance" eval="True" />
+        <field name="payment_tolerance_param">0</field>
+    </record>
+</odoo>
