@@ -81,7 +81,7 @@ stripe post /v1/payment_intents \
   -d amount=1250 \
   -d currency=usd \
   -d "payment_method_types[]=card_present" \
-  -d capture_method=automatic \
+  -d capture_method=automatic_async \
   -d "metadata[x_terminal_standalone_note]=INV/2026/0042"
 ```
 

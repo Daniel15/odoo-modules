@@ -87,7 +87,7 @@ class StandaloneProcessingCommon(AccountPaymentCommon):
             "livemode": False,
             "amount_received": 1250,
             "amount_details": {"tip": {}},
-            "capture_method": "automatic",
+            "capture_method": "automatic_async",
             "currency": "usd",
             "latest_charge": "ch_processing",
             "payment_method": "pm_processing",

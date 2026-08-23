@@ -83,6 +83,13 @@ class TestStripeTerminalStandaloneValidation(StandaloneProcessingCommon):
                 ):
                     self.audit._validate_payment_intent(response)
 
+    def test_automatic_capture_methods_are_supported(self):
+        for capture_method in ("automatic", "automatic_async"):
+            with self.subTest(capture_method=capture_method):
+                self.audit._validate_payment_intent(
+                    self._payment_intent(capture_method=capture_method)
+                )
+
     def test_payment_intent_validation_rules(self):
         cases = [
             (

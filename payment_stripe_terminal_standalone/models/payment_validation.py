@@ -42,7 +42,7 @@ class StripeTerminalStandalonePaymentValidation(models.Model):
             "The PaymentIntent mode does not match the received event.",
         )
         self._require_review(
-            payment_intent.get("capture_method") == "automatic",
+            payment_intent.get("capture_method") in ("automatic", "automatic_async"),
             "unsupported_capture_method",
             "Only automatically captured standalone payments are supported.",
         )

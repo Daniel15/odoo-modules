@@ -6,7 +6,9 @@
    method must use a reconcilable Outstanding Receipts account. A dedicated Stripe journal
    is recommended.
 3. On the Stripe provider, click **Create Terminal Webhook** next to **Terminal Webhook
-   Secret**. One Terminal webhook is sufficient for all readers using that provider.
+   Secret**. If a Terminal webhook already exists, click **Update Terminal Webhook**
+   instead so it subscribes to `payment_intent.succeeded`. One Terminal webhook is
+   sufficient for all readers using that provider.
 4. [Enable standalone mode](https://docs.stripe.com/terminal/payments/standalone-mode/get-started)
    for the Stripe Terminal location and reboot the reader.
 
