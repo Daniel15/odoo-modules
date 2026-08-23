@@ -7,6 +7,11 @@ from odoo.tools import mute_logger
 
 from .common import StandaloneProcessingCommon
 
+_STANDALONE_PAYMENT_LOGGER = (
+    "odoo.addons.payment_stripe_terminal_standalone.models."
+    "stripe_terminal_standalone_payment"
+)
+
 
 class TestStripeTerminalStandaloneProcessing(StandaloneProcessingCommon):
     def test_success_uses_standard_transaction_and_payment(self):
@@ -68,6 +73,7 @@ class TestStripeTerminalStandaloneProcessing(StandaloneProcessingCommon):
             self.invoice._get_invoice_in_payment_state(),
         )
 
+    @mute_logger(_STANDALONE_PAYMENT_LOGGER)
     def test_wrong_amount_requires_review_without_accounting(self):
         self._process_payment(payment_intent=self._payment_intent(amount_received=1200))
 
@@ -81,6 +87,7 @@ class TestStripeTerminalStandaloneProcessing(StandaloneProcessingCommon):
             )
         )
 
+    @mute_logger(_STANDALONE_PAYMENT_LOGGER)
     def test_non_card_present_charge_requires_review(self):
         charge = self._charge(payment_method_details={"type": "card", "card": {}})
         self._process_payment(charge=charge)
@@ -90,6 +97,7 @@ class TestStripeTerminalStandaloneProcessing(StandaloneProcessingCommon):
         self.assertEqual(self.audit.failure_code, "unsupported_payment_method")
         self.assertFalse(self.audit.payment_transaction_id)
 
+    @mute_logger(_STANDALONE_PAYMENT_LOGGER)
     def test_unknown_invoice_requires_review(self):
         self.audit.internal_note = "INV/DOES/NOT/EXIST"
         self._process_payment()
@@ -128,10 +136,7 @@ class TestStripeTerminalStandaloneProcessing(StandaloneProcessingCommon):
         self.assertEqual(self.audit.state, "received")
         self.assertFalse(self.audit.failure_code)
 
-    @mute_logger(
-        "odoo.addons.payment_stripe_terminal_standalone.models."
-        "stripe_terminal_standalone_payment"
-    )
+    @mute_logger(_STANDALONE_PAYMENT_LOGGER)
     def test_post_processing_failure_rolls_back_accounting(self):
         transaction_model = type(self.env["payment.transaction"])
         original_post_process = transaction_model._post_process

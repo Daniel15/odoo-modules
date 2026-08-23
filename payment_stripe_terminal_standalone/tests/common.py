@@ -3,13 +3,16 @@
 
 from unittest.mock import patch
 
+from odoo.tools import mute_logger
+
 from odoo.addons.account_payment.tests.common import AccountPaymentCommon
 
 
 class StandaloneProcessingCommon(AccountPaymentCommon):
     @classmethod
     def setUpClass(cls):
-        super().setUpClass()
+        with mute_logger("odoo.addons.account.models.chart_template"):
+            super().setUpClass()
         cls.provider = cls._prepare_provider(
             "stripe",
             update_values={
