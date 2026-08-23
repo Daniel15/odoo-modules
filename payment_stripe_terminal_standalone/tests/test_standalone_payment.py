@@ -52,7 +52,7 @@ class TestStripeTerminalStandalonePayment(TransactionCase):
             ],
         )
 
-    def test_note_bearing_event_creates_logged_audit_only(self):
+    def test_note_bearing_event_creates_received_audit_only(self):
         transaction_count = self.env["payment.transaction"].search_count([])
         payment_count = self.env["account.payment"].search_count([])
         with (
@@ -64,6 +64,10 @@ class TestStripeTerminalStandalonePayment(TransactionCase):
                 type(self.provider),
                 "_stripe_terminal_retrieve_charge",
             ) as retrieve_charge,
+            patch.object(
+                type(self.env["stripe.terminal.standalone.payment"]),
+                "_process_payment_from_webhook",
+            ) as process_payment,
         ):
             handled = self.provider._stripe_terminal_dispatch_webhook_event(
                 self._event()
@@ -74,7 +78,7 @@ class TestStripeTerminalStandalonePayment(TransactionCase):
         )
         self.assertTrue(handled)
         self.assertEqual(len(audit), 1)
-        self.assertEqual(audit.state, "logged")
+        self.assertEqual(audit.state, "received")
         self.assertEqual(audit.internal_note, "INV/2026/0042")
         self.assertEqual(audit.event_id, "evt_standalone")
         self.assertEqual(audit.charge_id, "ch_standalone")
@@ -85,6 +89,7 @@ class TestStripeTerminalStandalonePayment(TransactionCase):
         self.assertFalse(audit.payment_transaction_id)
         retrieve_intent.assert_not_called()
         retrieve_charge.assert_not_called()
+        process_payment.assert_called_once()
         self.assertEqual(
             self.env["payment.transaction"].search_count([]), transaction_count
         )
@@ -132,10 +137,16 @@ class TestStripeTerminalStandalonePayment(TransactionCase):
     @mute_logger("odoo.sql_db")
     def test_same_event_duplicate_is_idempotent(self):
         event = self._event()
-        with patch(
-            "odoo.addons.payment_stripe_terminal_standalone.models.payment_provider."
-            "_logger.info"
-        ) as log_info:
+        with (
+            patch(
+                "odoo.addons.payment_stripe_terminal_standalone.models.payment_provider."
+                "_logger.info"
+            ) as log_info,
+            patch.object(
+                type(self.env["stripe.terminal.standalone.payment"]),
+                "_process_payment_from_webhook",
+            ) as process_payment,
+        ):
             self.provider._stripe_terminal_dispatch_webhook_event(event)
             self.provider._stripe_terminal_dispatch_webhook_event(event)
         self.assertEqual(
@@ -145,13 +156,18 @@ class TestStripeTerminalStandalonePayment(TransactionCase):
             1,
         )
         self.assertEqual(log_info.call_count, 1)
+        process_payment.assert_called_once()
 
     @mute_logger("odoo.sql_db")
     def test_same_payment_intent_in_different_event_is_idempotent(self):
-        self.provider._stripe_terminal_dispatch_webhook_event(self._event())
-        self.provider._stripe_terminal_dispatch_webhook_event(
-            self._event(event_id="evt_standalone_retry")
-        )
+        with patch.object(
+            type(self.env["stripe.terminal.standalone.payment"]),
+            "_process_payment_from_webhook",
+        ):
+            self.provider._stripe_terminal_dispatch_webhook_event(self._event())
+            self.provider._stripe_terminal_dispatch_webhook_event(
+                self._event(event_id="evt_standalone_retry")
+            )
         audit = self.env["stripe.terminal.standalone.payment"].search(
             [("payment_intent_id", "=", "pi_standalone")]
         )
@@ -170,9 +186,15 @@ class TestStripeTerminalStandalonePayment(TransactionCase):
                 },
             },
         }
-        with patch.object(
-            type(self.provider), "_stripe_terminal_retrieve_charge"
-        ) as retrieve_charge:
+        with (
+            patch.object(
+                type(self.provider), "_stripe_terminal_retrieve_charge"
+            ) as retrieve_charge,
+            patch.object(
+                type(self.env["stripe.terminal.standalone.payment"]),
+                "_process_payment_from_webhook",
+            ),
+        ):
             self.provider._stripe_terminal_dispatch_webhook_event(event)
         audit = self.env["stripe.terminal.standalone.payment"].search(
             [("payment_intent_id", "=", "pi_expanded")]

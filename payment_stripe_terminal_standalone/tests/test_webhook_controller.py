@@ -2,6 +2,7 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 
 import json
+from unittest.mock import patch
 
 from odoo.tests import HttpCase, tagged
 from odoo.tools import mute_logger
@@ -80,18 +81,22 @@ class TestStripeTerminalStandaloneWebhookController(HttpCase):
             allow_redirects=False,
         )
 
-    def test_verified_note_bearing_event_is_logged(self):
+    def test_verified_note_bearing_event_is_received(self):
         payload = self._payload("evt_http_standalone", "pi_http_standalone")
-        response = self._post(
-            payload,
-            build_webhook_signature_header(payload, self.webhook_secret),
-        )
+        with patch.object(
+            type(self.env["stripe.terminal.standalone.payment"]),
+            "_process_payment_from_webhook",
+        ):
+            response = self._post(
+                payload,
+                build_webhook_signature_header(payload, self.webhook_secret),
+            )
         self.assertEqual(response.status_code, 200)
         audit = self.env["stripe.terminal.standalone.payment"].search(
             [("payment_intent_id", "=", "pi_http_standalone")]
         )
         self.assertEqual(len(audit), 1)
-        self.assertEqual(audit.state, "logged")
+        self.assertEqual(audit.state, "received")
 
     def test_verified_no_note_event_is_ignored(self):
         payload = self._payload("evt_http_no_note", "pi_http_no_note", note=False)

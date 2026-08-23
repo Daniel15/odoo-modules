@@ -46,16 +46,17 @@ class PaymentProvider(models.Model):
         audit, created = (
             self.env["stripe.terminal.standalone.payment"]
             .sudo()
-            ._log_event(self, event, stripe_object, note)
+            ._receive_event(self, event, stripe_object, note)
         )
         if created:
             _logger.info(
-                "Logged Stripe Terminal standalone candidate %s for %s %s with invoice "
-                "note %s and provider %s; automatic processing is not implemented yet.",
+                "Received Stripe Terminal standalone PaymentIntent %s for %s %s with "
+                "invoice note %s and provider %s.",
                 audit.payment_intent_id,
                 audit.amount,
                 audit.currency_id.name,
                 audit.internal_note,
                 self.display_name,
             )
+            audit._process_payment_from_webhook()
         return True

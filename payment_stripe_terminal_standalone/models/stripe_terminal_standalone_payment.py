@@ -5,7 +5,9 @@ import logging
 
 from psycopg2.errors import UniqueViolation
 
-from odoo import api, fields, models
+from odoo import Command, api, fields, models
+
+from .exceptions import ReviewRequired
 
 _logger = logging.getLogger(__name__)
 
@@ -134,6 +136,7 @@ class StripeTerminalStandalonePayment(models.Model):
         index=True,
         ondelete="restrict",
         readonly=True,
+        check_company=True,
         help=("Odoo customer invoice matched from the internal note."),
     )
     payment_transaction_id = fields.Many2one(
@@ -141,6 +144,7 @@ class StripeTerminalStandalonePayment(models.Model):
         index=True,
         ondelete="restrict",
         readonly=True,
+        check_company=True,
         help=(
             "Odoo payment.transaction created to process this payment through Odoo's "
             "payment and accounting lifecycle. Unlike charge_id, this references an "
@@ -158,7 +162,7 @@ class StripeTerminalStandalonePayment(models.Model):
             ("failed", "Failed"),
         ],
         required=True,
-        default="logged",
+        default="received",
         index=True,
         readonly=True,
         help=("Current Odoo processing state of this audit record."),
@@ -174,34 +178,17 @@ class StripeTerminalStandalonePayment(models.Model):
         readonly=True,
         help=("Human-readable details about a later processing or validation failure."),
     )
-    retry_count = fields.Integer(
-        readonly=True,
-        help=(
-            "Number of automatic processing attempts made by a later queued "
-            "processor. Always zero in Part 2."
-        ),
-    )
-    next_retry_at = fields.Datetime(
+    processing_started_at = fields.Datetime(
         index=True,
         readonly=True,
         help=(
-            "Earliest time at which a later queued processor may retry this record. "
-            "Unused in Part 2."
-        ),
-    )
-    processing_started_at = fields.Datetime(
-        readonly=True,
-        help=(
-            "Time at which a later worker claimed this record for processing. Unused "
-            "in Part 2."
+            "Time at which processing began. Cleared after processing or "
+            "when review is required."
         ),
     )
     processed_at = fields.Datetime(
         readonly=True,
-        help=(
-            "Time at which Odoo successfully finished processing the standalone "
-            "payment. Unused in Part 2."
-        ),
+        help="Time at which Odoo successfully processed the standalone payment.",
     )
     event_summary = fields.Text(
         readonly=True,
@@ -215,17 +202,17 @@ class StripeTerminalStandalonePayment(models.Model):
         (
             "provider_event_unique",
             "unique(provider_id, event_id)",
-            "This Stripe event has already been logged for this provider.",
+            "This Stripe event has already been recorded for this provider.",
         ),
         (
             "provider_intent_unique",
             "unique(provider_id, payment_intent_id)",
-            "This Stripe PaymentIntent has already been logged for this provider.",
+            "This Stripe PaymentIntent has already been recorded for this provider.",
         ),
     ]
 
     @api.model
-    def _log_event(self, provider, event, payment_intent, note):
+    def _receive_event(self, provider, event, payment_intent, note):
         event_id = event.get("id")
         payment_intent_id = payment_intent.get("id")
         values = self._get_event_values(provider, event, payment_intent, note)
@@ -316,9 +303,152 @@ class StripeTerminalStandalonePayment(models.Model):
                 else 0
             ),
             "currency_id": currency.id,
-            "state": "logged",
+            "state": "received",
             "event_summary": (
                 f"Verified payment_intent.succeeded event {event_id} for "
                 f"PaymentIntent {payment_intent_id}."
             ),
         }
+
+    def _process_payment_from_webhook(self):
+        self.ensure_one()
+        if self.state != "received":
+            return
+
+        self.write(
+            {
+                "state": "processing",
+                "processing_started_at": fields.Datetime.now(),
+                "failure_code": False,
+                "failure_reason": False,
+            }
+        )
+        try:
+            # Business mismatches must discard any transaction/payment work while
+            # retaining the receipt for review. Technical errors escape this block so
+            # the whole webhook transaction rolls back and Stripe retries delivery.
+            with self.env.cr.savepoint():
+                self._process_payment()
+        except ReviewRequired as error:
+            self._mark_review_required(error)
+
+    def _process_payment(self):
+        self.ensure_one()
+        provider = self.provider_id.sudo()
+        self._validate_provider(provider)
+
+        payment_intent = provider._stripe_terminal_retrieve_payment_intent(
+            self.payment_intent_id
+        )
+        payment_intent_values = self._validate_payment_intent(payment_intent)
+        charge = provider._stripe_terminal_retrieve_charge(
+            payment_intent_values["charge_id"]
+        )
+        charge_values = self._validate_charge(
+            charge,
+            payment_intent_values["charge_id"],
+            payment_intent_values["amount_minor"],
+            payment_intent_values["currency"],
+        )
+
+        invoice = self._find_invoice(provider)
+        self._lock_and_validate_invoice(
+            invoice,
+            provider,
+            payment_intent_values["amount_minor"],
+            payment_intent_values["currency"],
+        )
+        payment_method_line = self._validate_accounting_configuration(provider, invoice)
+        amount = provider._stripe_terminal_to_major_currency_units(
+            payment_intent_values["amount_minor"], invoice.currency_id
+        )
+        tx = self._create_and_process_transaction(
+            provider, invoice, payment_intent, amount, payment_method_line
+        )
+
+        self.write(
+            {
+                "charge_id": charge_values["charge_id"],
+                "reader_id": charge_values["reader_id"],
+                "location_id": charge_values["location_id"],
+                "amount_minor": payment_intent_values["amount_minor"],
+                "amount": amount,
+                "currency_id": invoice.currency_id.id,
+                "invoice_id": invoice.id,
+                "payment_transaction_id": tx.id,
+                "state": "processed",
+                "failure_code": False,
+                "failure_reason": False,
+                "processing_started_at": False,
+                "processed_at": fields.Datetime.now(),
+            }
+        )
+
+    def _create_and_process_transaction(
+        self, provider, invoice, payment_intent, amount, payment_method_line
+    ):
+        reference = f"STRIPE-STANDALONE-{self.payment_intent_id}"
+        self._validate_transaction_reference(reference)
+        tx = (
+            self.env["payment.transaction"]
+            .sudo()
+            .create(
+                {
+                    "provider_id": provider.id,
+                    "payment_method_id": self.env.ref("payment.payment_method_card").id,
+                    "reference": reference,
+                    "amount": amount,
+                    "currency_id": invoice.currency_id.id,
+                    "partner_id": invoice.partner_id.id,
+                    "operation": "online_direct",
+                    "tokenize": False,
+                    "invoice_ids": [Command.set(invoice.ids)],
+                }
+            )
+        )
+        handled_tx = tx._handle_notification_data(
+            "stripe",
+            {
+                "payment_intent": payment_intent,
+                "payment_method": payment_intent.get("payment_method"),
+            },
+        )
+        self._validate_handled_transaction(tx, handled_tx)
+        # Online payments normally post-process from the browser status page. A
+        # standalone reader has no browser return, so the webhook must finish it here.
+        tx._post_process()
+
+        tx.invalidate_recordset(
+            ["state", "provider_reference", "payment_id", "is_post_processed"]
+        )
+        invoice.invalidate_recordset(["amount_residual", "payment_state"])
+        self._validate_post_processed_accounting(tx, invoice, payment_method_line)
+        return tx
+
+    def _mark_review_required(self, error):
+        self.ensure_one()
+        message = (
+            f"Standalone PaymentIntent {self.payment_intent_id} requires review: "
+            f"{error.reason} ({error.code})"
+        )
+        self.write(
+            {
+                "state": "review_required",
+                "failure_code": error.code,
+                "failure_reason": error.reason,
+                "processing_started_at": False,
+            }
+        )
+        self.env["ir.logging"].sudo().create(
+            {
+                "name": _logger.name,
+                "type": "server",
+                "dbname": self.env.cr.dbname,
+                "level": "WARNING",
+                "message": message,
+                "path": __file__,
+                "func": "_mark_review_required",
+                "line": "0",
+            }
+        )
+        _logger.warning("%s", message)
