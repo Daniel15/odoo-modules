@@ -1,16 +1,17 @@
 # Copyright 2026 Daniel Lo Nigro
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 
-import hashlib
-import hmac
 import json
-import time
 
 from werkzeug.exceptions import Forbidden
 
 from odoo.exceptions import AccessError
 from odoo.tests import HttpCase, new_test_user, tagged
 from odoo.tools import mute_logger
+
+from odoo.addons.payment_stripe_terminal_base.webhook_signature import (
+    build_webhook_signature_header,
+)
 
 
 @tagged("post_install", "-at_install")
@@ -56,15 +57,6 @@ class TestLegacyStripeTerminalWebhookController(HttpCase):
         if not self.provider:
             self.skipTest("No Stripe provider configured")
 
-    def _signature_header(self, payload):
-        timestamp = int(time.time())
-        signature = hmac.new(
-            self.webhook_secret.encode(),
-            str(timestamp).encode() + b"." + payload,
-            hashlib.sha256,
-        ).hexdigest()
-        return f"t={timestamp},v1={signature}"
-
     def _post_webhook(self, payload, signature_header=None):
         return self.url_open(
             "/pos_stripe_server_driven/webhook",
@@ -88,7 +80,10 @@ class TestLegacyStripeTerminalWebhookController(HttpCase):
         payload = json.dumps(
             {"id": "evt_legacy", "type": "unhandled.event", "livemode": False}
         ).encode()
-        response = self._post_webhook(payload, self._signature_header(payload))
+        response = self._post_webhook(
+            payload,
+            build_webhook_signature_header(payload, self.webhook_secret),
+        )
         self.assertEqual(response.status_code, 200)
 
     def test_retired_legacy_secret_is_rejected(self):
@@ -99,12 +94,16 @@ class TestLegacyStripeTerminalWebhookController(HttpCase):
         payload = b'{"id":"evt_legacy"}'
         with self.assertRaises(Forbidden):
             self.provider._stripe_terminal_verify_legacy_webhook_signature(
-                payload, self._signature_header(payload)
+                payload,
+                build_webhook_signature_header(payload, self.webhook_secret),
             )
 
     def test_signed_non_object_json_is_rejected(self):
         payload = b"[]"
-        response = self._post_webhook(payload, self._signature_header(payload))
+        response = self._post_webhook(
+            payload,
+            build_webhook_signature_header(payload, self.webhook_secret),
+        )
         self.assertEqual(response.status_code, 400)
 
     def test_pos_manager_cannot_configure_terminal_webhooks(self):

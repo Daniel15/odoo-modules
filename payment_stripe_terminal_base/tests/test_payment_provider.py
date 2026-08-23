@@ -1,8 +1,6 @@
 # Copyright 2026 Daniel Lo Nigro
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 
-import hashlib
-import hmac
 import time
 from unittest.mock import patch
 
@@ -13,6 +11,8 @@ from odoo.tests.common import TransactionCase, new_test_user
 from odoo.tools import mute_logger
 
 from odoo.addons.payment_stripe import const as stripe_const
+
+from ..webhook_signature import compute_webhook_signature
 
 
 class StripeTerminalProviderCase(TransactionCase):
@@ -253,11 +253,7 @@ class TestStripeTerminalWebhookSignature(StripeTerminalProviderCase):
         self.payload = b'{"id":"evt_test"}'
 
     def _signature(self, timestamp, secret="whsec_test_secret"):
-        return hmac.new(
-            secret.encode(),
-            str(timestamp).encode() + b"." + self.payload,
-            hashlib.sha256,
-        ).hexdigest()
+        return compute_webhook_signature(self.payload, secret, timestamp)
 
     def test_valid_signature(self):
         timestamp = int(time.time())

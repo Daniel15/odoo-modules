@@ -10,6 +10,25 @@ class WebhookSignatureError(ValueError):
     """Raised when a Stripe webhook signature cannot be validated."""
 
 
+def compute_webhook_signature(raw_payload, webhook_secret, event_timestamp):
+    """Compute the Stripe v1 HMAC for an exact payload and event timestamp."""
+    if isinstance(raw_payload, str):
+        raw_payload = raw_payload.encode()
+    signed_payload = str(event_timestamp).encode() + b"." + raw_payload
+    return hmac.new(
+        webhook_secret.encode(),
+        signed_payload,
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def build_webhook_signature_header(raw_payload, webhook_secret, event_timestamp=None):
+    """Build a Stripe-Signature header, primarily for webhook integration tests."""
+    event_timestamp = int(time.time()) if event_timestamp is None else event_timestamp
+    signature = compute_webhook_signature(raw_payload, webhook_secret, event_timestamp)
+    return f"t={event_timestamp},v1={signature}"
+
+
 def verify_webhook_signature(
     raw_payload,
     signature_header,
@@ -56,12 +75,11 @@ def verify_webhook_signature(
     if not v1_signatures:
         raise WebhookSignatureError("missing v1 signature")
 
-    signed_payload = str(event_timestamp).encode() + b"." + raw_payload
-    expected_signature = hmac.new(
-        webhook_secret.encode(),
-        signed_payload,
-        hashlib.sha256,
-    ).hexdigest()
+    expected_signature = compute_webhook_signature(
+        raw_payload,
+        webhook_secret,
+        event_timestamp,
+    )
     if not any(
         hmac.compare_digest(signature, expected_signature)
         for signature in v1_signatures

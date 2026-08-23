@@ -1,0 +1,216 @@
+# Testing payment_stripe_terminal_standalone with a Simulated Reader
+
+This guide manually tests standalone invoice payment processing with the Stripe CLI and
+a simulated Terminal reader. It does not require physical reader hardware.
+
+The simulated flow creates a card-present PaymentIntent through the Stripe API and sends
+it to a simulated reader. This is not Stripe Standalone Mode itself, but it produces the
+same `payment_intent.succeeded` event needed to test the module.
+
+## Prerequisites
+
+- [Stripe CLI](https://docs.stripe.com/cli) installed and authenticated with `stripe login`
+- Odoo running locally on `http://localhost:8069`
+- A Stripe account and Odoo Stripe provider configured in test mode
+- The `payment_stripe_terminal_standalone` module installed
+- A posted, unpaid customer invoice whose full value is the amount and currency used below
+- A bank journal selected on the Stripe provider, with a valid reconcilable outstanding
+  account on its inbound Stripe payment method line
+
+## 1. Create a Terminal Location and Simulated Reader
+
+Stripe requires a Location before a reader can be created.
+
+```bash
+stripe post /v1/terminal/locations \
+  -d display_name="Standalone Test Location" \
+  -d "address[line1]=123 Main St" \
+  -d "address[city]=San Francisco" \
+  -d "address[state]=CA" \
+  -d "address[country]=US" \
+  -d "address[postal_code]=94111"
+```
+
+Note the Location `id` from the response, such as `tml_xxx`, and create a simulated
+reader:
+
+```bash
+stripe post /v1/terminal/readers \
+  -d registration_code=simulated-s710 \
+  -d label="Standalone Simulated Reader" \
+  -d location=tml_xxx
+```
+
+Note the reader `id`, such as `tmr_xxx`.
+
+## 2. Start Webhook Forwarding
+
+In **Invoicing > Configuration > Payment Providers**, open the test Stripe provider and
+copy its **Stripe Terminal Webhook URL**.
+
+In a dedicated terminal, start the Stripe CLI listener:
+
+```bash
+stripe listen \
+  --events payment_intent.succeeded \
+  --forward-to <stripe-terminal-webhook-url>
+```
+
+The CLI prints a webhook signing secret beginning with `whsec_`. Keep the listener
+running and use that secret in the next step.
+
+## 3. Configure Odoo
+
+1. Open the test Stripe provider in **Invoicing > Configuration > Payment Providers**.
+2. Paste the `whsec_...` value into **Stripe Terminal Webhook Secret**.
+3. Do not click **Create Terminal Webhook**. Stripe CLI forwarding does not create or
+   require an endpoint.
+4. Confirm that the provider is in **Test Mode**.
+
+When testing with a real Stripe webhook endpoint instead of `stripe listen`, click
+**Update Terminal Webhook** after installing this module. Its enabled events must include
+`payment_intent.succeeded`.
+
+## 4. Test a Note-Bearing Payment
+
+Create a PaymentIntent that explicitly sets `x_terminal_standalone_note`. Replace the
+sample value with the exact number of the posted customer invoice to pay.
+
+```bash
+stripe post /v1/payment_intents \
+  -d amount=1250 \
+  -d currency=usd \
+  -d "payment_method_types[]=card_present" \
+  -d capture_method=automatic_async \
+  -d "metadata[x_terminal_standalone_note]=INV/2026/0042"
+```
+
+The `metadata[x_terminal_standalone_note]` argument is required for this test. Note the
+returned PaymentIntent `id`, such as `pi_xxx`, then send it to the simulated reader:
+
+```bash
+stripe post /v1/terminal/readers/tmr_xxx/process_payment_intent \
+  -d payment_intent=pi_xxx
+```
+
+Simulate presenting a successful test card:
+
+```bash
+stripe post /v1/test_helpers/terminal/readers/tmr_xxx/present_payment_method
+```
+
+The listener should forward `payment_intent.succeeded`. Odoo processes the payment in
+that webhook request and should log a message similar to:
+
+```text
+Received Stripe Terminal standalone PaymentIntent pi_xxx ...
+```
+
+## 5. Verify the Audit Record
+
+Open an Odoo shell for the same database that received the webhook. For example, the
+database name in a log line beginning with `WARNING test1` is `test1`:
+
+```bash
+DB_NAME=test1
+docker compose run --rm odoo -- shell --db-filter="^${DB_NAME}$" -d "${DB_NAME}"
+```
+
+Confirm that the module is installed in that database, then query the PaymentIntent ID
+returned in step 4:
+
+```python
+env["ir.module.module"].search(
+    [("name", "=", "payment_stripe_terminal_standalone")]
+).state
+audit = env["stripe.terminal.standalone.payment"].search(
+    [("payment_intent_id", "=", "pi_xxx")]
+)
+audit.read(
+    [
+        "event_id",
+        "payment_intent_id",
+        "internal_note",
+        "amount_minor",
+        "amount",
+        "currency_id",
+        "state",
+        "invoice_id",
+        "payment_transaction_id",
+    ]
+)
+```
+
+Verify:
+
+- Exactly one record exists.
+- `internal_note` is `INV/2026/0042`.
+- `state` is `processed`.
+- `amount_minor` is `1250` and the currency is USD.
+- `invoice_id` is the invoice named in the note.
+- `payment_transaction_id` references a done, post-processed Stripe transaction.
+- The transaction has a posted `account.payment` using the provider's journal and
+  inbound Stripe payment method line.
+- The invoice residual is zero and its payment state is Odoo's expected in-payment or
+  paid state for the configured outstanding account.
+
+## 6. Verify Missing-Note Events Are Ignored
+
+Repeat the flow with a new PaymentIntent, but omit the metadata argument:
+
+```bash
+stripe post /v1/payment_intents \
+  -d amount=1250 \
+  -d currency=usd \
+  -d "payment_method_types[]=card_present" \
+  -d capture_method=automatic
+```
+
+Process the new `pi_xxx` on the simulated reader and present a payment method as in step
+4. The webhook must return HTTP 200, but this query must return no records:
+
+```python
+env["stripe.terminal.standalone.payment"].search(
+    [("payment_intent_id", "=", "pi_xxx")]
+)
+```
+
+Empty and whitespace-only `x_terminal_standalone_note` values are ignored in the same
+way.
+
+## 7. Verify Duplicate Delivery
+
+Find the event ID in the Stripe listener output or with `stripe events list`, then resend
+it:
+
+```bash
+stripe events resend evt_xxx
+```
+
+The resend should return HTTP 200 and the PaymentIntent should still have exactly one
+audit record, transaction, and accounting payment.
+
+## 8. Verify Review and Retry Behavior
+
+Permanent validation failures, such as an unknown invoice, amount mismatch, unsupported
+payment method, or invalid accounting configuration, return HTTP 200 and leave the audit
+in `review_required` without partial accounting entries.
+
+Technical failures, including Stripe API or database errors, fail the webhook request.
+Odoo rolls back the receipt and all accounting work so Stripe can retry the event.
+
+## 9. Automated Tests
+
+```bash
+docker compose run --rm odoo -- \
+  --stop-after-init \
+  --db-filter="^odoo_test$" \
+  -d odoo_test \
+  -i payment_stripe_terminal_standalone \
+  --test-enable \
+  --test-tags /payment_stripe_terminal_standalone \
+  --log-level=test
+```
+
+Use `-u payment_stripe_terminal_standalone` instead of
+`-i payment_stripe_terminal_standalone` when the module is already installed.
