@@ -15,6 +15,7 @@ Stripe for standalone mode.
 
 - Accept payments on Stripe terminals and use them to mark Odoo invoices as paid, without dealing with complex integrations.
 - Processes validated, successful payments immediately through a webhook.
+- Supports multiple partial payments against the same invoice.
 
-Partial payments, nonzero tips, refunds, and payments for more than one invoice are not
-currently supported.
+Nonzero tips, refunds, and payments for more than one invoice are not currently
+supported.

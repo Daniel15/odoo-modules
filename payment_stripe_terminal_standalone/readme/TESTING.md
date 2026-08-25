@@ -13,7 +13,7 @@ same `payment_intent.succeeded` event needed to test the module.
 - Odoo running locally on `http://localhost:8069`
 - A Stripe account and Odoo Stripe provider configured in test mode
 - The `payment_stripe_terminal_standalone` module installed
-- A posted, unpaid customer invoice whose full value is the amount and currency used below
+- A posted customer invoice whose outstanding balance is at least the amount used below
 - A bank journal selected on the Stripe provider, with a valid reconcilable outstanding
   account on its inbound Stripe payment method line
 
@@ -151,8 +151,14 @@ Verify:
 - `payment_transaction_id` references a done, post-processed Stripe transaction.
 - The transaction has a posted `account.payment` using the provider's journal and
   inbound Stripe payment method line.
-- The invoice residual is zero and its payment state is Odoo's expected in-payment or
-  paid state for the configured outstanding account.
+- The invoice residual decreased by `12.50`. If a balance remains, its payment state is
+  `partial`; otherwise, it is Odoo's expected in-payment or paid state for the configured
+  outstanding account.
+
+To test multiple cards, create and process another PaymentIntent with the same invoice
+number in `x_terminal_standalone_note` and an amount no greater than the remaining
+residual. Odoo should create a separate transaction and accounting payment, associate
+both with the invoice, and reduce the residual again.
 
 ## 6. Verify Missing-Note Events Are Ignored
 
@@ -192,9 +198,9 @@ audit record, transaction, and accounting payment.
 
 ## 8. Verify Review and Retry Behavior
 
-Permanent validation failures, such as an unknown invoice, amount mismatch, unsupported
-payment method, or invalid accounting configuration, return HTTP 200 and leave the audit
-in `review_required` without partial accounting entries.
+Permanent validation failures, such as an unknown invoice, an amount above the residual,
+an unsupported payment method, or invalid accounting configuration, return HTTP 200 and
+leave the audit in `review_required` without partial accounting entries.
 
 Technical failures, including Stripe API or database errors, fail the webhook request.
 Odoo rolls back the receipt and all accounting work so Stripe can retry the event.

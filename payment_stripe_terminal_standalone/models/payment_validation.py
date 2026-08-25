@@ -253,14 +253,18 @@ class StripeTerminalStandalonePaymentValidation(models.Model):
             .search(
                 [
                     ("invoice_ids", "in", invoice.id),
-                    ("state", "in", ("pending", "authorized", "done")),
+                    "|",
+                    ("state", "in", ("pending", "authorized")),
+                    "&",
+                    ("state", "=", "done"),
+                    ("is_post_processed", "=", False),
                 ]
             )
         )
         self._require_review(
             not conflicts,
             "conflicting_payment_transaction",
-            "The invoice already has a pending, authorized, or completed transaction.",
+            "The invoice already has a transaction awaiting accounting processing.",
         )
         self._require_review(
             invoice.currency_id.name.lower() == currency,
@@ -271,10 +275,11 @@ class StripeTerminalStandalonePaymentValidation(models.Model):
             invoice.amount_residual, invoice.currency_id
         )
         self._require_review(
-            expected_minor == amount_minor,
-            "invoice_amount_mismatch",
-            "The captured amount does not equal the full invoice residual.",
+            amount_minor <= expected_minor,
+            "invoice_amount_exceeds_residual",
+            "The captured amount exceeds the invoice residual.",
         )
+        return invoice.amount_residual
 
     def _validate_accounting_configuration(self, provider, invoice):
         lines = (
@@ -342,7 +347,9 @@ class StripeTerminalStandalonePaymentValidation(models.Model):
             "The transaction provider reference is not the PaymentIntent ID.",
         )
 
-    def _validate_post_processed_accounting(self, tx, invoice, payment_method_line):
+    def _validate_post_processed_accounting(
+        self, tx, invoice, payment_method_line, residual_before
+    ):
         payment = tx.payment_id
         self._require_review(
             bool(payment)
@@ -361,15 +368,21 @@ class StripeTerminalStandalonePaymentValidation(models.Model):
             "payment_configuration_mismatch",
             "The accounting payment did not use the configured Stripe payment method.",
         )
+        expected_residual = residual_before - tx.amount
         self._require_review(
-            invoice.currency_id.is_zero(invoice.amount_residual),
-            "invoice_not_fully_paid",
-            "The accounting payment did not clear the invoice residual.",
+            invoice.currency_id.is_zero(invoice.amount_residual - expected_residual),
+            "invoice_residual_mismatch",
+            "The accounting payment did not reduce the invoice residual as expected.",
+        )
+        expected_payment_state = (
+            invoice._get_invoice_in_payment_state()
+            if invoice.currency_id.is_zero(expected_residual)
+            else "partial"
         )
         self._require_review(
-            invoice.payment_state == invoice._get_invoice_in_payment_state(),
+            invoice.payment_state == expected_payment_state,
             "invoice_payment_state_mismatch",
-            "The invoice did not reach Odoo's expected paid state.",
+            "The invoice did not reach Odoo's expected payment state.",
         )
 
     @staticmethod

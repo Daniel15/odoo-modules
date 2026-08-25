@@ -73,6 +73,71 @@ class TestStripeTerminalStandaloneProcessing(StandaloneProcessingCommon):
             self.invoice._get_invoice_in_payment_state(),
         )
 
+    def test_two_partial_payments_are_applied_to_the_same_invoice(self):
+        self._process_payment(
+            payment_intent=self._payment_intent(amount_received=750),
+            charge=self._charge(amount_captured=750),
+        )
+
+        self.audit.invalidate_recordset()
+        self.invoice.invalidate_recordset(["amount_residual", "payment_state"])
+        first_audit = self.audit
+        first_tx = first_audit.payment_transaction_id
+        self.assertEqual(first_audit.state, "processed")
+        self.assertEqual(first_audit.amount, 7.5)
+        self.assertEqual(first_tx.amount, 7.5)
+        self.assertEqual(first_tx.invoice_ids, self.invoice)
+        self.assertEqual(first_tx.payment_id.invoice_ids, self.invoice)
+        self.assertEqual(self.invoice.amount_residual, 5)
+        self.assertEqual(self.invoice.payment_state, "partial")
+
+        self.audit = self._receive_audit(
+            self.invoice.name,
+            event_id="evt_remaining",
+            payment_intent_id="pi_remaining",
+            amount_minor=500,
+        )
+        self._process_payment(
+            payment_intent=self._payment_intent(
+                amount_received=500,
+                latest_charge="ch_remaining",
+            ),
+            charge=self._charge(id="ch_remaining", amount_captured=500),
+        )
+
+        self.audit.invalidate_recordset()
+        self.invoice.invalidate_recordset(["amount_residual", "payment_state"])
+        second_tx = self.audit.payment_transaction_id
+        self.assertEqual(self.audit.state, "processed")
+        self.assertEqual(self.audit.amount, 5)
+        self.assertEqual(second_tx.amount, 5)
+        self.assertNotEqual(second_tx, first_tx)
+        self.assertEqual(second_tx.invoice_ids, self.invoice)
+        self.assertEqual(second_tx.payment_id.invoice_ids, self.invoice)
+        self.assertEqual(self.invoice.transaction_ids, first_tx | second_tx)
+        self.assertTrue(self.invoice.currency_id.is_zero(self.invoice.amount_residual))
+        self.assertEqual(
+            self.invoice.payment_state,
+            self.invoice._get_invoice_in_payment_state(),
+        )
+
+    @mute_logger(_STANDALONE_PAYMENT_LOGGER)
+    def test_amount_above_invoice_residual_requires_review(self):
+        self._process_payment(
+            payment_intent=self._payment_intent(amount_received=1300),
+            charge=self._charge(amount_captured=1300),
+        )
+
+        self.audit.invalidate_recordset()
+        self.assertEqual(self.audit.state, "review_required")
+        self.assertEqual(self.audit.failure_code, "invoice_amount_exceeds_residual")
+        self.assertFalse(self.audit.payment_transaction_id)
+        self.assertFalse(
+            self.env["payment.transaction"].search(
+                [("reference", "=", "STRIPE-STANDALONE-pi_processing")]
+            )
+        )
+
     @mute_logger(_STANDALONE_PAYMENT_LOGGER)
     def test_wrong_amount_requires_review_without_accounting(self):
         self._process_payment(payment_intent=self._payment_intent(amount_received=1200))

@@ -1,6 +1,8 @@
 # Copyright 2026 Daniel Lo Nigro
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 
+# Common test utilities, shared across multiple tests.
+
 from unittest.mock import patch
 
 from odoo.tools import mute_logger
@@ -47,6 +49,7 @@ class StandaloneProcessingCommon(AccountPaymentCommon):
         note,
         event_id="evt_processing",
         payment_intent_id="pi_processing",
+        amount_minor=1250,
     ):
         event = {
             "id": event_id,
@@ -59,7 +62,7 @@ class StandaloneProcessingCommon(AccountPaymentCommon):
                     "id": payment_intent_id,
                     "object": "payment_intent",
                     "status": "succeeded",
-                    "amount_received": 1250,
+                    "amount_received": amount_minor,
                     "currency": "usd",
                     "latest_charge": "ch_processing",
                     "metadata": {"x_terminal_standalone_note": note},

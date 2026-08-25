@@ -352,7 +352,7 @@ class StripeTerminalStandalonePayment(models.Model):
         )
 
         invoice = self._find_invoice(provider)
-        self._lock_and_validate_invoice(
+        residual_before = self._lock_and_validate_invoice(
             invoice,
             provider,
             payment_intent_values["amount_minor"],
@@ -363,7 +363,12 @@ class StripeTerminalStandalonePayment(models.Model):
             payment_intent_values["amount_minor"], invoice.currency_id
         )
         tx = self._create_and_process_transaction(
-            provider, invoice, payment_intent, amount, payment_method_line
+            provider,
+            invoice,
+            payment_intent,
+            amount,
+            payment_method_line,
+            residual_before,
         )
 
         self.write(
@@ -385,7 +390,13 @@ class StripeTerminalStandalonePayment(models.Model):
         )
 
     def _create_and_process_transaction(
-        self, provider, invoice, payment_intent, amount, payment_method_line
+        self,
+        provider,
+        invoice,
+        payment_intent,
+        amount,
+        payment_method_line,
+        residual_before,
     ):
         reference = f"STRIPE-STANDALONE-{self.payment_intent_id}"
         self._validate_transaction_reference(reference)
@@ -422,7 +433,9 @@ class StripeTerminalStandalonePayment(models.Model):
             ["state", "provider_reference", "payment_id", "is_post_processed"]
         )
         invoice.invalidate_recordset(["amount_residual", "payment_state"])
-        self._validate_post_processed_accounting(tx, invoice, payment_method_line)
+        self._validate_post_processed_accounting(
+            tx, invoice, payment_method_line, residual_before
+        )
         return tx
 
     def _mark_review_required(self, error):

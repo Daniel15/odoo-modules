@@ -42,7 +42,9 @@ class TestStripeTerminalStandaloneValidation(StandaloneProcessingCommon):
             ),
         )
 
-    def _valid_post_processing_records(self):
+    def _valid_post_processing_records(
+        self, amount=12.5, amount_residual=0, payment_state="paid"
+    ):
         payment_method_line = self._valid_payment_method_line()
         payment = SimpleNamespace(
             state="paid",
@@ -51,11 +53,15 @@ class TestStripeTerminalStandaloneValidation(StandaloneProcessingCommon):
             payment_method_line_id=payment_method_line,
             outstanding_account_id=payment_method_line.payment_account_id,
         )
-        tx = SimpleNamespace(payment_id=payment, is_post_processed=True)
+        tx = SimpleNamespace(
+            amount=amount,
+            payment_id=payment,
+            is_post_processed=True,
+        )
         invoice = SimpleNamespace(
-            currency_id=SimpleNamespace(is_zero=lambda _amount: True),
-            amount_residual=0,
-            payment_state="paid",
+            currency_id=SimpleNamespace(is_zero=lambda value: abs(value) < 0.000001),
+            amount_residual=amount_residual,
+            payment_state=payment_state,
             _get_invoice_in_payment_state=lambda: "paid",
         )
         return tx, invoice, payment_method_line
@@ -306,13 +312,22 @@ class TestStripeTerminalStandaloneValidation(StandaloneProcessingCommon):
             "eur",
         )
 
-    def test_locked_invoice_residual_must_match(self):
-        self._assert_review(
-            "invoice_amount_mismatch",
-            self.audit._lock_and_validate_invoice,
+    def test_locked_invoice_accepts_partial_amount(self):
+        residual_before = self.audit._lock_and_validate_invoice(
             self.invoice,
             self.provider,
             1200,
+            "usd",
+        )
+        self.assertEqual(residual_before, 12.5)
+
+    def test_locked_invoice_rejects_amount_above_residual(self):
+        self._assert_review(
+            "invoice_amount_exceeds_residual",
+            self.audit._lock_and_validate_invoice,
+            self.invoice,
+            self.provider,
+            1300,
             "usd",
         )
 
@@ -408,6 +423,7 @@ class TestStripeTerminalStandaloneValidation(StandaloneProcessingCommon):
             tx,
             invoice,
             payment_method_line,
+            12.5,
         )
 
     def test_post_processed_payment_must_use_validated_configuration(self):
@@ -419,17 +435,30 @@ class TestStripeTerminalStandaloneValidation(StandaloneProcessingCommon):
             tx,
             invoice,
             payment_method_line,
+            12.5,
         )
 
-    def test_post_processing_must_clear_invoice_residual(self):
+    def test_post_processing_accepts_expected_partial_residual(self):
+        tx, invoice, payment_method_line = self._valid_post_processing_records(
+            amount=5, amount_residual=7.5, payment_state="partial"
+        )
+        self.audit._validate_post_processed_accounting(
+            tx,
+            invoice,
+            payment_method_line,
+            12.5,
+        )
+
+    def test_post_processing_must_apply_full_transaction_amount(self):
         tx, invoice, payment_method_line = self._valid_post_processing_records()
-        invoice.currency_id.is_zero = lambda _amount: False
+        invoice.amount_residual = 1
         self._assert_review(
-            "invoice_not_fully_paid",
+            "invoice_residual_mismatch",
             self.audit._validate_post_processed_accounting,
             tx,
             invoice,
             payment_method_line,
+            12.5,
         )
 
     def test_post_processing_must_set_expected_invoice_state(self):
@@ -441,4 +470,5 @@ class TestStripeTerminalStandaloneValidation(StandaloneProcessingCommon):
             tx,
             invoice,
             payment_method_line,
+            12.5,
         )
