@@ -1,0 +1,76 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* currency_format
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 18.0\n"
+"Report-Msgid-Bugs-To: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: currency_format
+#: model:ir.model.fields.selection,name:currency_format.selection__res_currency__display_format__after_no_space
+msgid "After Amount, No Space"
+msgstr ""
+
+#. module: currency_format
+#: model:ir.model.fields.selection,name:currency_format.selection__res_currency__display_format__after_space
+msgid "After Amount, With Space"
+msgstr ""
+
+#. module: currency_format
+#: model:ir.model.fields.selection,name:currency_format.selection__res_currency__display_format__before_no_space
+msgid "Before Amount, No Space"
+msgstr ""
+
+#. module: currency_format
+#: model:ir.model.fields.selection,name:currency_format.selection__res_currency__display_format__before_space
+msgid "Before Amount, With Space"
+msgstr ""
+
+#. module: currency_format
+#: model:ir.model,name:currency_format.model_res_currency
+msgid "Currency"
+msgstr ""
+
+#. module: currency_format
+#: model:ir.model.fields,help:currency_format.field_res_currency__symbol_spacing
+msgid ""
+"Determines whether a non-breaking space separates the currency symbol and "
+"amount."
+msgstr ""
+
+#. module: currency_format
+#: model:ir.model.fields,field_description:currency_format.field_res_currency__display_format
+msgid "Display Format"
+msgstr ""
+
+#. module: currency_format
+#: model:ir.model,name:currency_format.model_ir_http
+msgid "HTTP Routing"
+msgstr ""
+
+#. module: currency_format
+#: model:ir.model.fields.selection,name:currency_format.selection__res_currency__symbol_spacing__no_space
+msgid "No Space"
+msgstr ""
+
+#. module: currency_format
+#: model:ir.model,name:currency_format.model_ir_qweb_field_monetary
+msgid "Qweb Field Monetary"
+msgstr ""
+
+#. module: currency_format
+#: model:ir.model.fields.selection,name:currency_format.selection__res_currency__symbol_spacing__space
+msgid "Space"
+msgstr ""
+
+#. module: currency_format
+#: model:ir.model.fields,field_description:currency_format.field_res_currency__symbol_spacing
+msgid "Symbol Spacing"
+msgstr ""
