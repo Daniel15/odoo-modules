@@ -19,6 +19,7 @@ Available addons
 ----------------
 addon | version | maintainers | summary
 --- | --- | --- | ---
+[currency_format](currency_format/) | 18.0.1.0.0 | <a href='https://github.com/Daniel15'><img src='https://github.com/Daniel15.png' width='32' height='32' style='border-radius:50%;' alt='Daniel15'/></a> | Configure currency symbol position and spacing
 [payment_stripe_terminal_base](payment_stripe_terminal_base/) | 18.0.1.0.0 | <a href='https://github.com/Daniel15'><img src='https://github.com/Daniel15.png' width='32' height='32' style='border-radius:50%;' alt='Daniel15'/></a> | Provides reusable infrastructure for Stripe Terminal integrations
 [payment_stripe_terminal_standalone](payment_stripe_terminal_standalone/) | 18.0.1.0.0 | <a href='https://github.com/Daniel15'><img src='https://github.com/Daniel15.png' width='32' height='32' style='border-radius:50%;' alt='Daniel15'/></a> | Match and apply Stripe Terminal standalone payments to invoices
 [pos_stripe_server_driven](pos_stripe_server_driven/) | 18.0.2.0.0 | <a href='https://github.com/Daniel15'><img src='https://github.com/Daniel15.png' width='32' height='32' style='border-radius:50%;' alt='Daniel15'/></a> | Integrate your POS with a Stripe terminal via server-driven integration
