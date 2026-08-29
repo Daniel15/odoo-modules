@@ -63,6 +63,7 @@ test("formats display options with the currency being edited", () => {
 
 test("uses the currency rounding and decimal places in display options", () => {
     expect(getDisplayFormatPreview("¥", "before_no_space", 1, 0)).toBe("¥123");
+    expect(getDisplayFormatPreview("¥", "before_no_space", 5, 0)).toBe("¥125");
     expect(getDisplayFormatPreview("$", "before_no_space", 0.1, 1)).toBe("$123.4");
     expect(getDisplayFormatPreview("$", "before_no_space", 0.05, 2)).toBe("$123.45");
     expect(getDisplayFormatPreview("د.ك", "after_space", 0.001, 3)).toBe(

@@ -6,9 +6,6 @@ import {formatCurrency} from "@web/core/currency";
 import {registry} from "@web/core/registry";
 
 function getPreviewAmount(rounding, decimalPlaces) {
-    if (decimalPlaces === 0) {
-        return 123;
-    }
     const fraction = "45678901234567890".slice(0, decimalPlaces);
     const amount = Number(`123.${fraction}`);
     return Math.round(amount / rounding) * rounding;
