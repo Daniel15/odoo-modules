@@ -9,6 +9,9 @@
     "data": [
         "views/res_currency_views.xml",
     ],
+    "images": [
+        "static/description/banner.png",
+    ],
     "assets": {
         # This is messy, but unfortunately there's no way to patch the formatCurrency
         # module without replacing the entire file. Odoo's patch() function only works
