@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+    <t t-inherit="web.MonetaryField" t-inherit-mode="extension">
+        <xpath expr="//span[@t-out='currencySymbol + nbsp']" position="attributes">
+            <attribute
+                name="t-out"
+            >currencySymbol + (currency.symbol_spacing === 'no_space' ? '' : nbsp)</attribute>
+        </xpath>
+        <xpath expr="//span[@t-out='nbsp + currencySymbol']" position="attributes">
+            <attribute
+                name="t-out"
+            >(currency.symbol_spacing === 'no_space' ? '' : nbsp) + currencySymbol</attribute>
+        </xpath>
+    </t>
+</templates>
